@@ -1,0 +1,14 @@
+
+%%[
+    SET @result = Lookup(
+        "DataExtension",
+        "ReturnField",
+        "LookupField1",
+        @value1,
+        "LookupField2",
+        @value2,
+        "LookupField3",
+        @value3
+    )
+    SET @short = Concat(@a, @b, @c)
+]%%

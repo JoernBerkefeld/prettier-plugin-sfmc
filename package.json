@@ -1,0 +1,56 @@
+{
+    "name": "prettier-plugin-sfmc",
+    "version": "0.1.0",
+    "description": "Prettier plugin for Salesforce Marketing Cloud — AMPscript formatting and SSJS file registration",
+    "type": "module",
+    "main": "src/index.js",
+    "exports": {
+        ".": "./src/index.js"
+    },
+    "files": [
+        "src",
+        "docs",
+        "README.md",
+        "LICENSE"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/JoernBerkefeld/prettier-plugin-sfmc.git"
+    },
+    "bugs": {
+        "url": "https://github.com/JoernBerkefeld/prettier-plugin-sfmc/issues"
+    },
+    "homepage": "https://github.com/JoernBerkefeld/prettier-plugin-sfmc#readme",
+    "author": "Joern Berkefeld",
+    "scripts": {
+        "example": "prettier --plugin . example.ampscript",
+        "test": "node --experimental-vm-modules ../node_modules/jest/bin/jest.js"
+    },
+    "keywords": [
+        "prettier",
+        "ampscript",
+        "ssjs",
+        "sfmc",
+        "salesforce",
+        "marketing-cloud",
+        "plugin",
+        "formatter"
+    ],
+    "license": "MIT",
+    "dependencies": {
+        "ampscript-data": "^0.1.1",
+        "ampscript-parser": "^0.1.0",
+        "ssjs-data": "^0.1.0"
+    },
+    "devDependencies": {
+        "jest": "^29.0.0",
+        "@jest/globals": "^29.0.0",
+        "prettier": "^3.7.0"
+    },
+    "peerDependencies": {
+        "prettier": ">=3.7.0"
+    },
+    "engines": {
+        "node": ">=18.0.0"
+    }
+}

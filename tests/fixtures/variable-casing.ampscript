@@ -1,0 +1,8 @@
+
+%%[
+    VAR @Name
+    SET @Name = "Alice"
+    SET @Name = "Bob"
+    SET @Name = "Charlie"
+]%%
+<p>%%=v(@nAmE)=%%</p>

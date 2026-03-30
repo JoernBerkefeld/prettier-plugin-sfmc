@@ -1,0 +1,11 @@
+%%[
+  set @a = 1
+  /* prettier-ignore */
+  SET  @b    =    2
+  set @c = 3
+  /* prettier-ignore-start */
+  SET  @d    =    4
+  SET  @e    =    5
+  /* prettier-ignore-end */
+  set @f = 6
+]%%

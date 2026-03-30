@@ -1,0 +1,6 @@
+
+%%[
+    SET @msg = 'Hello "World"'
+    SET @name = "It's me"
+]%%
+<p>%%=v(@msg)=%%</p>

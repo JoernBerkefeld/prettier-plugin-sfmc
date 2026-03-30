@@ -1,0 +1,13 @@
+
+%%[
+    IF @age >= 18 THEN
+        SET @group = "adult"
+    ELSEIF @age < 3 THEN
+        SET @group = "toddler"
+    ELSE
+        SET @group = "child"
+    ENDIF
+    FOR @i = 1 TO 10 DO
+        SET @line = Concat("Row ", @i)
+    NEXT @i
+]%%

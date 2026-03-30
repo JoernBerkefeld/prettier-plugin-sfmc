@@ -1,0 +1,22 @@
+
+%%[
+    IF (@status) == "active" THEN
+        SET @msg = v((@name))
+        SET @x = (Lookup('DE', 'Field', 'Key', @val))
+        SET @y = ((@var))
+        SET @z = (v(@name))
+        IF (@a and @b) or @c THEN
+            SET @r = 1
+        ENDIF
+        IF (@a or @b) and @c THEN
+            SET @r = 2
+        ENDIF
+        IF (@a == "b") and @c THEN
+            SET @r = 3
+        ENDIF
+        IF (not @flag) THEN
+            SET @r = 4
+        ENDIF
+        SET @q = (not @flag)
+    ENDIF
+]%%

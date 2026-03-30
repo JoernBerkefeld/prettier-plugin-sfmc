@@ -1,0 +1,23 @@
+
+%%[
+    VAR @firstName, @lastName, @fullName
+    SET @firstName = AttributeValue("FirstName")
+    SET @lastName = AttributeValue("LastName")
+    SET @fullName = Concat(@firstName, " ", @lastName)
+]%%
+<h1>Hello, %%=v(  @fullName )=%%!</h1>
+%%[
+    IF @firstName ==   "Tom" THEN
+        SET @greeting = "Welcome back, Tom!"
+    ELSEIF @firstName == "Jane" THEN
+        SET @greeting = "Hi Jane!"
+    ELSE
+        SET @greeting = "Hello, stranger."
+    ENDIF
+]%%
+<p>%%=v(@greeting)=%%</p>
+%%[
+    FOR @i =1 TO 5 DO
+        SET @line = Concat("Item ", @i)
+    NEXT @i
+]%%

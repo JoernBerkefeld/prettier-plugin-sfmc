@@ -1,0 +1,7 @@
+
+%%[
+    VAR @firstName, @lastName
+    SET @firstName = AttributeValue("FirstName")
+    SET @lastName = AttributeValue("LastName")
+]%%
+<h1>%%=v(  @firstName )=%% %%=v(@lastName)=%%</h1>

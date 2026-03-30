@@ -1,0 +1,6 @@
+
+%%[
+    VAR @name
+    SET @name = "World"
+]%%
+<p>Hello, %%= v(@name) =%%!</p>
