@@ -69,13 +69,67 @@ When formatting `.html` files, the plugin:
 
 This means a single plugin handles all SFMC formatting in HTML email templates.
 
-## Migration from `prettier-plugin-ampscript` / `prettier-plugin-ssjs`
+## Ignoring Code
 
-Both plugins have been merged into this single package:
+Prettier provides two ways to exclude code from formatting: ignore comments for specific code sections, and `.prettierignore` for entire files.
 
-1. Replace `prettier-plugin-ampscript` and `prettier-plugin-ssjs` with `prettier-plugin-sfmc`
-2. Update the `plugins` array in `.prettierrc` if explicitly configured
-3. All `ampscript*` option names are unchanged
+### SSJS
+
+SSJS uses Prettier's built-in JavaScript formatter. Use `// prettier-ignore` to exclude the next statement from formatting:
+
+```js
+// prettier-ignore
+var config = {
+    clientId:     "abc123",
+    clientSecret: "xyz789",
+    endpoint:     "https://example.com"
+};
+```
+
+Without the comment, Prettier would collapse the aligned spacing.
+
+### AMPscript
+
+AMPscript uses block comment syntax. Use `/* prettier-ignore */` to exclude the next statement from formatting:
+
+```ampscript
+%%[
+/* prettier-ignore */
+set @matrix = Concat(
+    '1, 0, 0,',
+    '0, 1, 0,',
+    '0, 0, 1'
+)
+]%%
+```
+
+### Ignoring Files: .prettierignore
+
+To exclude entire files from formatting, create a `.prettierignore` file in the root of your project. It uses [gitignore syntax](https://git-scm.com/docs/gitignore#_pattern_format).
+
+Example:
+
+```text
+# Ignore artifacts:
+build
+coverage
+
+# Ignore all HTML files:
+**/*.html
+```
+
+By default Prettier ignores files in version control directories (`.git`, `.svn`, `.hg`) and `node_modules`. Prettier also follows rules in `.gitignore` if present.
+
+#### SMS and Mobile Messages
+
+For SMS or MobilePush messages, line breaks and exact character placement often matter for delivery and display. Excluding these files from formatting prevents Prettier from altering whitespace that affects message rendering.
+
+Example pattern for SFMC DevTools mobile message assets:
+
+```text
+# Preserve exact formatting in mobile messages
+**/*.asset-mobile-meta.amp
+```
 
 ## License
 
