@@ -24,7 +24,7 @@
     "author": "Joern Berkefeld",
     "scripts": {
         "example": "prettier --plugin . example.ampscript",
-        "test": "node --experimental-vm-modules ../node_modules/jest/bin/jest.js"
+        "test": "node ./scripts/run-jest.mjs"
     },
     "keywords": [
         "prettier",
