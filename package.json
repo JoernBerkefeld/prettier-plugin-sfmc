@@ -1,6 +1,6 @@
 {
     "name": "prettier-plugin-sfmc",
-    "version": "0.1.2",
+    "version": "0.1.3",
     "description": "Prettier plugin for Salesforce Marketing Cloud — AMPscript formatting and SSJS file registration",
     "type": "module",
     "main": "src/index.js",
