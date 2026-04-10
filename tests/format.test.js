@@ -26,6 +26,22 @@ async function format(code, options = {}) {
     });
 }
 
+async function formatSsjs(code, options = {}) {
+    return prettier.format(code, {
+        parser: 'babel',
+        plugins: [plugin],
+        ...options,
+    });
+}
+
+async function formatSql(code, options = {}) {
+    return prettier.format(code, {
+        parser: 'sql',
+        plugins: [plugin],
+        ...options,
+    });
+}
+
 // ── Parser: basic document structure ─────────────────────────────────────────
 
 describe('parser', () => {
@@ -155,26 +171,25 @@ describe('ampscriptRemoveUnnecessaryBrackets', () => {
 // ── Indentation ──────────────────────────────────────────────────────────────
 
 describe('indentation', () => {
-    test('indents with 2 spaces by default', async () => {
+    test('indents block statements with plugin default tab width (4 spaces)', async () => {
         const input = '%%[\nset @x = "a"\n]%%';
-        const result = await format(input, { tabWidth: 2 });
-        // Statements inside a block should be indented
-        const lines = result.split('\n');
-        const setLine = lines.find((l) => l.includes('set @x'));
-        expect(setLine).toBeDefined();
-        if (setLine) {
-            expect(setLine.startsWith('  ')).toBe(true);
-        }
-    });
-
-    test('indents with 4 spaces when configured', async () => {
-        const input = '%%[\nset @x = "a"\n]%%';
-        const result = await format(input, { tabWidth: 4 });
+        const result = await format(input);
         const lines = result.split('\n');
         const setLine = lines.find((l) => l.includes('set @x'));
         expect(setLine).toBeDefined();
         if (setLine) {
             expect(setLine.startsWith('    ')).toBe(true);
+        }
+    });
+
+    test('indents with 2 spaces when tabWidth is 2', async () => {
+        const input = '%%[\nset @x = "a"\n]%%';
+        const result = await format(input, { tabWidth: 2 });
+        const lines = result.split('\n');
+        const setLine = lines.find((l) => l.includes('set @x'));
+        expect(setLine).toBeDefined();
+        if (setLine) {
+            expect(setLine.startsWith('  ')).toBe(true);
         }
     });
 });
@@ -230,6 +245,26 @@ describe('ampscriptKeywordCase', () => {
 });
 
 // ── Function casing option ───────────────────────────────────────────────────
+
+describe('ampscriptVarDeclarationStyle', () => {
+    test('uses multi-line var layout by default', async () => {
+        const input = '%%[\n  var @a, @b, @c\n]%%';
+        const result = await format(input);
+        expect(result).toContain('var @a,');
+        expect(result).toContain('@b,');
+        expect(result).toContain('@c');
+        expect(result).not.toMatch(/var @a, @b, @c/);
+    });
+
+    test('keeps multi-var on one line when set to auto with wide printWidth', async () => {
+        const input = '%%[\n  var @firstName, @lastName, @email\n]%%';
+        const result = await format(input, {
+            ampscriptVarDeclarationStyle: 'auto',
+            printWidth: 100,
+        });
+        expect(result).toContain('var @firstName, @lastName, @email');
+    });
+});
 
 describe('ampscriptFunctionCase', () => {
     test('applies PascalCase (upper-camel) by default', async () => {
@@ -303,11 +338,11 @@ describe('HTML embedding', () => {
     test('formats HTML structure while preserving AMPscript blocks', async () => {
         const input = '<html><body><p>Hello</p>%%[ set @x = 1 ]%%<p>World</p></body></html>';
         const result = await format(input);
-        // HTML should be indented
+        // HTML should be indented (tabWidth 4 from plugin defaultOptions)
         expect(result).toContain('<html>');
-        expect(result).toContain('  <body>');
-        expect(result).toContain('    <p>Hello</p>');
-        expect(result).toContain('    <p>World</p>');
+        expect(result).toContain('    <body>');
+        expect(result).toContain('        <p>Hello</p>');
+        expect(result).toContain('        <p>World</p>');
         // AMPscript block should be preserved and formatted
         expect(result).toContain('%%[');
         expect(result).toContain(']%%');
@@ -460,6 +495,40 @@ describe('many-params fixture', () => {
         const concatLine = lines.find((l) => l.includes('Concat('));
         expect(concatLine).toBeDefined();
         expect(concatLine).toContain('Concat(@a, @b, @c)');
+    });
+});
+
+describe('SSJS (babel) with plugin loaded', () => {
+    test('applies single quotes and omits trailing comma when configured (recommended for .ssjs)', async () => {
+        const input = 'const o = { foo: "bar", baz: "qux" };';
+        const result = await formatSsjs(input, {
+            singleQuote: true,
+            trailingComma: 'none',
+        });
+        expect(result).toContain("'bar'");
+        expect(result).toContain("'qux'");
+        expect(result.trim()).not.toMatch(/,\s*}/);
+    });
+
+    test('does not emit trailing comma when object breaks across lines with trailingComma none', async () => {
+        const input = 'const x = { a: 1, b: 2, c: 3 };';
+        const result = await formatSsjs(input, {
+            printWidth: 10,
+            singleQuote: true,
+            trailingComma: 'none',
+        });
+        expect(result).not.toMatch(/,\s*}/);
+    });
+});
+
+describe('SQL (composed prettier-plugin-sql)', () => {
+    test('formats with uppercase keywords using plugin sql defaults', async () => {
+        const input = 'select id from myTable where x = 1';
+        const result = await formatSql(input);
+        expect(result.toUpperCase()).toContain('SELECT');
+        expect(result.toUpperCase()).toContain('FROM');
+        expect(result.toUpperCase()).toContain('WHERE');
+        expect(result.trimEnd().length).toBeGreaterThan(0);
     });
 });
 

@@ -44,6 +44,30 @@ Normalises the casing of every known AMPscript function name. AMPscript function
 ]%%
 ```
 
+### `"lower-camel"`
+
+Uses the same canonical name as `"upper-camel"`, but with the first character lowercased (camelCase).
+
+**Input:**
+
+```ampscript
+%%[
+  var @result
+  set @result = LOOKUP("MyDE", "Value", "Key", @key)
+  set @html = contentblockbykey("my-block")
+]%%
+```
+
+**Output:**
+
+```ampscript
+%%[
+  var @result
+  set @result = lookup("MyDE", "Value", "Key", @key)
+  set @html = contentBlockByKey("my-block")
+]%%
+```
+
 ### `"upper"`
 
 **Output:**

@@ -2,16 +2,44 @@
  * prettier-plugin-sfmc
  *
  * A unified Prettier plugin for Salesforce Marketing Cloud.
- * Handles AMPscript formatting (.ampscript, .amp, .html) and
- * SSJS file registration (.ssjs).
+ * Handles AMPscript formatting (.ampscript, .amp, .html), SSJS file
+ * registration (.ssjs), and SQL (.sql) via composed prettier-plugin-sql.
  *
  * Exports: languages, parsers, printers, options, defaultOptions
  * Following the Prettier v3 plugin API (ESM).
  */
 
 import { parse } from 'ampscript-parser';
+import sqlPlugin from 'prettier-plugin-sql';
 import { printAmpscriptNode, collectVariableMap } from './printer.js';
 import * as prettier from 'prettier';
+
+/**
+ * Clone sql plugin option descriptors and set SFMC-friendly defaults.
+ *
+ * @param {Record<string, object>} sqlOptions
+ * @returns {Record<string, object>} Option map with adjusted defaults.
+ */
+function mergeSqlOptionsWithSfmcDefaults(sqlOptions) {
+    /** @type {Record<string, object>} */
+    const merged = {};
+    for (const [key, descriptor] of Object.entries(sqlOptions)) {
+        merged[key] = { ...descriptor };
+    }
+    const defaults = {
+        language: 'tsql',
+        keywordCase: 'upper',
+        functionCase: 'upper',
+        identifierCase: 'preserve',
+        dataTypeCase: 'preserve',
+    };
+    for (const [key, defaultValue] of Object.entries(defaults)) {
+        if (merged[key]) {
+            merged[key].default = defaultValue;
+        }
+    }
+    return merged;
+}
 
 // ── Languages ────────────────────────────────────────────────────────────────
 
@@ -28,6 +56,7 @@ export const languages = [
         extensions: ['.ssjs'],
         vscodeLanguageIds: ['ssjs'],
     },
+    ...sqlPlugin.languages,
 ];
 
 // ── Parsers ──────────────────────────────────────────────────────────────────
@@ -35,6 +64,7 @@ export const languages = [
 const PRAGMA_RE = /^\s*\/\*\*?\s*@(?:format|prettier)\s*\*\//;
 
 export const parsers = {
+    ...sqlPlugin.parsers,
     'ampscript-parse': {
         parse(text) {
             return parse(text);
@@ -65,6 +95,7 @@ export const parsers = {
 // ── Printers ─────────────────────────────────────────────────────────────────
 
 export const printers = {
+    ...sqlPlugin.printers,
     'ampscript-ast': {
         print(path, options, print) {
             const node = path.node;
@@ -221,7 +252,7 @@ export const printers = {
 
 // ── Options ──────────────────────────────────────────────────────────────────
 
-export const options = {
+const sfmcOptions = {
     ampscriptSpacing: {
         type: 'boolean',
         category: 'AMPscript',
@@ -308,12 +339,12 @@ export const options = {
     ampscriptVarDeclarationStyle: {
         type: 'choice',
         category: 'AMPscript',
-        default: 'auto',
+        default: 'multi-line',
         choices: [
             {
                 value: 'auto',
                 description:
-                    "Let Prettier decide based on printWidth: single line when it fits, one-per-line when it doesn't.",
+                    'Let Prettier decide based on printWidth: single line when it fits, otherwise break after each comma.',
             },
             {
                 value: 'single-line',
@@ -321,16 +352,25 @@ export const options = {
             },
             {
                 value: 'multi-line',
-                description: 'Always place each variable on its own line.',
+                description:
+                    'Always break after each comma: one `var` keyword, variables listed on separate lines.',
             },
         ],
         description: 'Control how var declarations with multiple variables are formatted.',
     },
 };
 
+export const options = {
+    ...mergeSqlOptionsWithSfmcDefaults(sqlPlugin.options),
+    ...sfmcOptions,
+};
+
 // ── Default Options ──────────────────────────────────────────────────────────
 
 export const defaultOptions = {
-    tabWidth: 2,
     useTabs: false,
+    tabWidth: 4,
+    printWidth: 100,
+    singleQuote: true,
+    trailingComma: 'none',
 };

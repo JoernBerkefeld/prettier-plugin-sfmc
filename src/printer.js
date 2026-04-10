@@ -200,7 +200,7 @@ function printAmpscriptNode(path, options, print) {
     const quoteChar = options.ampscriptQuoteStyle === 'single' ? "'" : '"';
     const enforceCasing = options.ampscriptEnforceVariableCasing;
     const removeBrackets = options.ampscriptRemoveUnnecessaryBrackets;
-    const variableStyle = options.ampscriptVarDeclarationStyle || 'auto';
+    const variableStyle = options.ampscriptVarDeclarationStyle || 'multi-line';
     const keywordCase = options.ampscriptKeywordCase || 'lower';
     const functionCase = options.ampscriptFunctionCase || 'upper-camel';
     const blockLineBreaks = options.ampscriptBlockLineBreaks !== false;
