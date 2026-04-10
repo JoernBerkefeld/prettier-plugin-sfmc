@@ -499,25 +499,29 @@ describe('many-params fixture', () => {
 });
 
 describe('SSJS (babel) with plugin loaded', () => {
-    test('applies single quotes and omits trailing comma when configured (recommended for .ssjs)', async () => {
+    test('applies plugin defaultOptions (single quotes, no trailing comma) without extra config', async () => {
         const input = 'const o = { foo: "bar", baz: "qux" };';
-        const result = await formatSsjs(input, {
-            singleQuote: true,
-            trailingComma: 'none',
-        });
+        const result = await formatSsjs(input);
         expect(result).toContain("'bar'");
         expect(result).toContain("'qux'");
         expect(result.trim()).not.toMatch(/,\s*}/);
     });
 
-    test('does not emit trailing comma when object breaks across lines with trailingComma none', async () => {
+    test('does not emit trailing comma when object breaks across lines (default trailingComma)', async () => {
         const input = 'const x = { a: 1, b: 2, c: 3 };';
-        const result = await formatSsjs(input, {
-            printWidth: 10,
-            singleQuote: true,
-            trailingComma: 'none',
-        });
+        const result = await formatSsjs(input, { printWidth: 10 });
         expect(result).not.toMatch(/,\s*}/);
+    });
+
+    test('explicit singleQuote / trailingComma still override defaults', async () => {
+        const input = 'const o = { foo: "bar", baz: "qux", x: 1 };';
+        const result = await formatSsjs(input, {
+            singleQuote: false,
+            trailingComma: 'all',
+            printWidth: 20,
+        });
+        expect(result).toContain('"bar"');
+        expect(result).toMatch(/,\s*}/);
     });
 });
 

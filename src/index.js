@@ -4,6 +4,7 @@
  * A unified Prettier plugin for Salesforce Marketing Cloud.
  * Handles AMPscript formatting (.ampscript, .amp, .html), SSJS file
  * registration (.ssjs), and SQL (.sql) via composed prettier-plugin-sql.
+ * Re-exports Prettier’s `estree` printer so `defaultOptions` apply to JS/SSJS.
  *
  * Exports: languages, parsers, printers, options, defaultOptions
  * Following the Prettier v3 plugin API (ESM).
@@ -11,6 +12,7 @@
 
 import { parse } from 'ampscript-parser';
 import sqlPlugin from 'prettier-plugin-sql';
+import { printers as prettierEstreePrinters } from 'prettier/plugins/estree';
 import { printAmpscriptNode, collectVariableMap } from './printer.js';
 import * as prettier from 'prettier';
 
@@ -96,6 +98,7 @@ export const parsers = {
 
 export const printers = {
     ...sqlPlugin.printers,
+    estree: prettierEstreePrinters.estree,
     'ampscript-ast': {
         print(path, options, print) {
             const node = path.node;

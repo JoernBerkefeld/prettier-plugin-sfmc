@@ -60,41 +60,40 @@ All options use the `ampscript` prefix — they control AMPscript formatting beh
 | `.ssjs`      | `babel` (built-in) | Standard JavaScript formatting                  |
 | `.sql`       | `sql`              | SQL via composed `prettier-plugin-sql`          |
 
-## Core Prettier defaults (AMPscript, HTML, SQL)
+## Core Prettier defaults (AMPscript, HTML, SQL, JavaScript / SSJS)
 
-This plugin exports [Prettier `defaultOptions`](https://prettier.io/docs/plugins#defaultoptions). Prettier merges them when **this plugin’s printer** is active (AMPscript / embedded AMPscript in HTML, and SQL via the composed `sql` printer). They affect layout choices such as `tabWidth` and `printWidth` for those formats.
+This plugin exports [Prettier `defaultOptions`](https://prettier.io/docs/plugins#defaultoptions). Prettier merges them from whichever plugin **owns the active printer** for the file being formatted. This package supplies printers for **AMPscript**, **SQL** (via composed `prettier-plugin-sql`), and the shared **`estree`** printer (the same implementation Prettier ships for JavaScript). User plugins are loaded **after** built-ins, so this plugin becomes the effective `estree` printer—meaning **`.ssjs`** files (typically `parser: "babel"`) pick up the table below **without** copying these keys into `.prettierrc`.
 
 | Option | Default | Rationale |
 | ------ | ------- | --------- |
 | `useTabs` | `false` | SFMC often normalizes tabs away on save; spaces keep layout stable. |
 | `tabWidth` | `4` | Readable indentation (override in config if you prefer 2). |
 | `printWidth` | `100` | Fits typical editor panes better than Prettier’s 80. |
-| `singleQuote` | `true` | Matches common JS style and `ampscriptQuoteStyle: 'single'` for AMPscript-related output where the core quote option applies. |
-| `trailingComma` | `'none'` | Avoids trailing commas in stacks where they can be problematic (notably SSJS — see below). |
+| `singleQuote` | `true` | Common JS style; aligns with `ampscriptQuoteStyle: 'single'` where the core quote option applies. |
+| `trailingComma` | `'none'` | Avoids trailing commas that can break SSJS in some SFMC contexts. |
 
 String delimiters inside AMPscript blocks still follow `ampscriptQuoteStyle`. See [Prettier options](https://prettier.io/docs/options) for every standard flag.
 
-### SSJS (`.ssjs`)
+**Overrides:** Add options to `.prettierrc` or [overrides](https://prettier.io/docs/configuration#configuration-overrides) only when you want to **diverge** (for example `tabWidth: 2` for the whole project, or different rules per file glob).
 
-`.ssjs` files use Prettier’s built-in **JavaScript** printer, not this plugin’s printer, so the `defaultOptions` above are **not** applied automatically to SSJS. Use `.prettierrc` (or [overrides](https://prettier.io/docs/configuration#configuration-overrides) on `*.ssjs`) if you want the same style, for example:
-
-```json
-{
-  "plugins": ["prettier-plugin-sfmc"],
-  "singleQuote": true,
-  "trailingComma": "none",
-  "tabWidth": 4,
-  "printWidth": 100
-}
-```
-
-To keep **AMPscript-only** indentation at 2 spaces while using different values for SSJS, use `overrides` keyed by file pattern.
+**Scope:** With this plugin enabled, any file Prettier formats using the **`estree`** printer uses these defaults—not only `.ssjs`. If another plugin in your config also registers `printers.estree`, plugin **order** matters (the last one wins).
 
 ## SQL (Transact-SQL / SFMC)
 
 `.sql` formatting is provided by [prettier-plugin-sql](https://github.com/un-ts/prettier/tree/master/packages/sql) (npm: [prettier-plugin-sql](https://www.npmjs.com/package/prettier-plugin-sql)). You only need `prettier` and `prettier-plugin-sfmc`; do not add a second entry in `plugins` for SQL.
 
-**Defaults chosen for SFMC-style T-SQL:** `language` `tsql`, `formatter` `sql-formatter`, `keywordCase` / `functionCase` `upper`, `identifierCase` / `dataTypeCase` `preserve`. Override any of these in `.prettierrc` or under `overrides` with `files: "*.sql"` if needed.
+**Defaults for SFMC-style T-SQL** (from composed [prettier-plugin-sql](https://www.npmjs.com/package/prettier-plugin-sql)):
+
+| Option | Default | Other values | Rationale |
+| ------ | ------- | ------------ | --------- |
+| `language` | `tsql` | n/a | Must stay `tsql` for SFMC T-SQL. Other dialects are not supported for SFMC SQL; changing this can break formatting or behaviour. |
+| `formatter` | `sql-formatter` | n/a | Must stay `sql-formatter` for SFMC SQL. Other formatters are not supported in this context; changing this can break. |
+| `keywordCase` | `upper` | `preserve`, `lower` | Casing for reserved keywords. |
+| `functionCase` | `upper` | `preserve`, `lower` | Casing for function names. |
+| `identifierCase` | `preserve` | `upper`, `lower` | Unquoted identifiers only (upstream treats this as experimental). |
+| `dataTypeCase` | `preserve` | `upper`, `lower` | Casing for data type names. |
+
+Do **not** override `language` or `formatter` for SFMC. You may override the **casing** options in `.prettierrc` or under `overrides` with `files: "*.sql"` if you want different keyword/function/identifier/data-type casing.
 
 Core layout still follows [Prettier options](https://prettier.io/docs/options). SQL-specific knobs (`expressionWidth`, `linesBetweenQueries`, etc.) are documented in the upstream package README.
 
