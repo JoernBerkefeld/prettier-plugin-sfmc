@@ -52,7 +52,9 @@ export const parsers = {
                 const blockClose = text.indexOf(']%%', blockOpen);
                 if (blockClose !== -1) {
                     const blockContent = text.slice(blockOpen + 3, blockClose);
-                    if (PRAGMA_RE.test(blockContent)) return true;
+                    if (PRAGMA_RE.test(blockContent)) {
+                        return true;
+                    }
                 }
             }
             return PRAGMA_RE.test(text);
@@ -76,12 +78,16 @@ export const printers = {
 
         embed(path, options) {
             const node = path.node;
-            if (node.type !== 'Document') return;
+            if (node.type !== 'Document') {
+                return;
+            }
 
             const hasHtml = node.children.some(
                 (c) => c.type === 'Content' && /<[a-zA-Z!/]/.test(c.value),
             );
-            if (!hasHtml) return;
+            if (!hasHtml) {
+                return;
+            }
 
             return async (textToDocument, print) => {
                 if (!options.__ampscriptVariableMap) {
@@ -111,19 +117,27 @@ export const printers = {
 
                 const re = new RegExp(String.raw`${PH}(\d+)END`, 'g');
                 return prettier.doc.utils.mapDoc(htmlDocument, (d) => {
-                    if (typeof d !== 'string') return d;
-                    if (!d.includes(PH)) return d;
+                    if (typeof d !== 'string') {
+                        return d;
+                    }
+                    if (!d.includes(PH)) {
+                        return d;
+                    }
 
                     const parts = [];
                     let last = 0;
                     let m;
                     re.lastIndex = 0;
                     while ((m = re.exec(d)) !== null) {
-                        if (m.index > last) parts.push(d.slice(last, m.index));
+                        if (m.index > last) {
+                            parts.push(d.slice(last, m.index));
+                        }
                         parts.push(print(['children', Number.parseInt(m[1], 10)]));
                         last = m.index + m[0].length;
                     }
-                    if (last < d.length) parts.push(d.slice(last));
+                    if (last < d.length) {
+                        parts.push(d.slice(last));
+                    }
                     return parts.length === 1 ? parts[0] : parts;
                 });
             };
@@ -143,7 +157,9 @@ export const printers = {
 
         printComment(path) {
             const comment = path.node;
-            if (comment.type === 'Comment') return comment.value;
+            if (comment.type === 'Comment') {
+                return comment.value;
+            }
             return '';
         },
 

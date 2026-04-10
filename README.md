@@ -20,7 +20,7 @@ To use explicitly in `.prettierrc`:
 
 ```json
 {
-    "plugins": ["prettier-plugin-sfmc"]
+  "plugins": ["prettier-plugin-sfmc"]
 }
 ```
 
@@ -28,25 +28,25 @@ To use explicitly in `.prettierrc`:
 
 All options use the `ampscript` prefix — they control AMPscript formatting behavior.
 
-| Option                               | Type                                                                         | Default         | Description                                    |
-| ------------------------------------ | ---------------------------------------------------------------------------- | --------------- | ---------------------------------------------- |
-| [`ampscriptSpacing`](docs/options/ampscript-spacing.md)                   | boolean                                                                      | `true`          | Spacing in inline expressions: `%%= V(@x) =%%` |
-| [`ampscriptEnforceVariableCasing`](docs/options/ampscript-enforce-variable-casing.md)     | boolean                                                                      | `true`          | Normalize variable casing to first occurrence  |
+| Option                                                                                        | Type                                                                         | Default         | Description                                    |
+| --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | --------------- | ---------------------------------------------- |
+| [`ampscriptSpacing`](docs/options/ampscript-spacing.md)                                       | boolean                                                                      | `true`          | Spacing in inline expressions: `%%= V(@x) =%%` |
+| [`ampscriptEnforceVariableCasing`](docs/options/ampscript-enforce-variable-casing.md)         | boolean                                                                      | `true`          | Normalize variable casing to first occurrence  |
 | [`ampscriptRemoveUnnecessaryBrackets`](docs/options/ampscript-remove-unnecessary-brackets.md) | boolean                                                                      | `true`          | Remove needless parentheses                    |
-| [`ampscriptQuoteStyle`](docs/options/ampscript-quote-style.md)                | `"single"` \| `"double"`                                                     | `"single"`      | String quote style                             |
-| [`ampscriptKeywordCase`](docs/options/ampscript-keyword-case.md)               | `"lower"` \| `"upper"` \| `"preserve"`                                       | `"lower"`       | Keyword casing                                 |
-| [`ampscriptFunctionCase`](docs/options/ampscript-function-case.md)              | `"upper-camel"` \| `"lower-camel"` \| `"upper"` \| `"lower"` \| `"preserve"` | `"upper-camel"` | Function name casing                           |
-| [`ampscriptBlockLineBreaks`](docs/options/ampscript-block-line-breaks.md)           | boolean                                                                      | `true`          | Line breaks before/after `%%[ ]%%` blocks      |
-| [`ampscriptVarDeclarationStyle`](docs/options/ampscript-var-declaration-style.md)       | `"auto"` \| `"single-line"` \| `"multi-line"`                                | `"auto"`        | Var declaration formatting                     |
+| [`ampscriptQuoteStyle`](docs/options/ampscript-quote-style.md)                                | `"single"` \| `"double"`                                                     | `"single"`      | String quote style                             |
+| [`ampscriptKeywordCase`](docs/options/ampscript-keyword-case.md)                              | `"lower"` \| `"upper"` \| `"preserve"`                                       | `"lower"`       | Keyword casing                                 |
+| [`ampscriptFunctionCase`](docs/options/ampscript-function-case.md)                            | `"upper-camel"` \| `"lower-camel"` \| `"upper"` \| `"lower"` \| `"preserve"` | `"upper-camel"` | Function name casing                           |
+| [`ampscriptBlockLineBreaks`](docs/options/ampscript-block-line-breaks.md)                     | boolean                                                                      | `true`          | Line breaks before/after `%%[ ]%%` blocks      |
+| [`ampscriptVarDeclarationStyle`](docs/options/ampscript-var-declaration-style.md)             | `"auto"` \| `"single-line"` \| `"multi-line"`                                | `"auto"`        | Var declaration formatting                     |
 
 ### Example `.prettierrc`
 
 ```json
 {
-    "plugins": ["prettier-plugin-sfmc"],
-    "ampscriptKeywordCase": "upper",
-    "ampscriptFunctionCase": "upper-camel",
-    "ampscriptQuoteStyle": "single"
+  "plugins": ["prettier-plugin-sfmc"],
+  "ampscriptKeywordCase": "upper",
+  "ampscriptFunctionCase": "upper-camel",
+  "ampscriptQuoteStyle": "single"
 }
 ```
 

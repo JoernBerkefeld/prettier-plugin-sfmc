@@ -13,12 +13,16 @@ const { group, indent, join, line, softline, hardline } = prettier.doc.builders;
 
 /**
  * Collect all variable names in first-occurrence order for consistent casing.
+ *
+ * @param node
  */
 function collectVariableMap(node) {
     const map = new Map(); // lowercase -> first-seen casing
 
     function walk(n) {
-        if (!n || typeof n !== 'object') return;
+        if (!n || typeof n !== 'object') {
+            return;
+        }
 
         if (n.type === 'Variable' && n.value) {
             const lower = n.value.toLowerCase();
@@ -27,28 +31,64 @@ function collectVariableMap(node) {
             }
         }
 
-        if (Array.isArray(n.children)) n.children.forEach(walk);
-        if (Array.isArray(n.statements)) n.statements.forEach(walk);
-        if (n.target) walk(n.target);
-        if (n.value && typeof n.value === 'object') walk(n.value);
-        if (n.expression) walk(n.expression);
-        if (n.condition) walk(n.condition);
-        if (n.left) walk(n.left);
-        if (n.right) walk(n.right);
-        if (n.argument) walk(n.argument);
-        if (Array.isArray(n.arguments)) n.arguments.forEach(walk);
-        if (Array.isArray(n.variables)) n.variables.forEach(walk);
-        if (Array.isArray(n.consequent)) n.consequent.forEach(walk);
+        if (Array.isArray(n.children)) {
+            n.children.forEach(walk);
+        }
+        if (Array.isArray(n.statements)) {
+            n.statements.forEach(walk);
+        }
+        if (n.target) {
+            walk(n.target);
+        }
+        if (n.value && typeof n.value === 'object') {
+            walk(n.value);
+        }
+        if (n.expression) {
+            walk(n.expression);
+        }
+        if (n.condition) {
+            walk(n.condition);
+        }
+        if (n.left) {
+            walk(n.left);
+        }
+        if (n.right) {
+            walk(n.right);
+        }
+        if (n.argument) {
+            walk(n.argument);
+        }
+        if (Array.isArray(n.arguments)) {
+            n.arguments.forEach(walk);
+        }
+        if (Array.isArray(n.variables)) {
+            n.variables.forEach(walk);
+        }
+        if (Array.isArray(n.consequent)) {
+            n.consequent.forEach(walk);
+        }
         if (Array.isArray(n.alternates)) {
             for (const alt of n.alternates) {
-                if (alt.condition) walk(alt.condition);
-                if (Array.isArray(alt.body)) alt.body.forEach(walk);
+                if (alt.condition) {
+                    walk(alt.condition);
+                }
+                if (Array.isArray(alt.body)) {
+                    alt.body.forEach(walk);
+                }
             }
         }
-        if (Array.isArray(n.body)) n.body.forEach(walk);
-        if (n.counter) walk(n.counter);
-        if (n.startExpr) walk(n.startExpr);
-        if (n.endExpr) walk(n.endExpr);
+        if (Array.isArray(n.body)) {
+            n.body.forEach(walk);
+        }
+        if (n.counter) {
+            walk(n.counter);
+        }
+        if (n.startExpr) {
+            walk(n.startExpr);
+        }
+        if (n.endExpr) {
+            walk(n.endExpr);
+        }
     }
 
     walk(node);
@@ -57,9 +97,13 @@ function collectVariableMap(node) {
 
 /**
  * Detect needless parentheses around a single variable or literal.
+ *
+ * @param node
  */
 function isNeedlessParenExpression(node) {
-    if (node.type !== 'ParenExpression') return false;
+    if (node.type !== 'ParenExpression') {
+        return false;
+    }
     const inner = node.expression;
     return (
         inner.type === 'Variable' ||
@@ -90,18 +134,25 @@ function getOperatorPrecedence(op) {
  * Context-aware check for whether a ParenExpression's parens can be removed.
  * Covers simple atoms, function calls, nested parens, statement-level
  * positions, and precedence-based removal inside binary expressions.
+ *
+ * @param path
+ * @param node
  */
 function canRemoveParens(path, node) {
     const inner = node.expression;
 
-    if (isNeedlessParenExpression(node)) return true;
+    if (isNeedlessParenExpression(node)) {
+        return true;
+    }
 
     if (inner.type === 'FunctionCall' || inner.type === 'ParenExpression') {
         return true;
     }
 
     const parent = path.getParentNode();
-    if (!parent) return false;
+    if (!parent) {
+        return false;
+    }
 
     const STATEMENT_PARENTS = [
         'SetStatement',
@@ -111,7 +162,9 @@ function canRemoveParens(path, node) {
         'ForStatement',
         'InlineExpression',
     ];
-    if (STATEMENT_PARENTS.includes(parent.type)) return true;
+    if (STATEMENT_PARENTS.includes(parent.type)) {
+        return true;
+    }
 
     if (parent.type === 'BinaryExpression') {
         const parentPrec = getOperatorPrecedence(parent.operator);
@@ -133,12 +186,14 @@ function canRemoveParens(path, node) {
  * processing are applied to every child node.
  *
  * @param {import("prettier").AstPath} path
- * @param {object} options  Merged Prettier + plugin options
- * @param {function} print  Prettier recursive print callback
+ * @param {object} options Merged Prettier + plugin options
+ * @param {function} print Prettier recursive print callback
  */
 function printAmpscriptNode(path, options, print) {
     const node = path.node;
-    if (!node) return '';
+    if (!node) {
+        return '';
+    }
 
     const variableMap = options.__ampscriptVariableMap || new Map();
     const enforceSpacing = options.ampscriptSpacing;
@@ -151,23 +206,44 @@ function printAmpscriptNode(path, options, print) {
     const blockLineBreaks = options.ampscriptBlockLineBreaks !== false;
 
     function resolveVariable(variableName) {
-        if (!enforceCasing) return variableName;
+        if (!enforceCasing) {
+            return variableName;
+        }
         const lower = variableName.toLowerCase();
         return variableMap.get(lower) || variableName;
     }
 
-    /** Apply keyword casing rule. Pass originalText for preserve mode. */
+    /**
+     * Apply keyword casing rule. Pass originalText for preserve mode.
+     *
+     * @param keyword
+     * @param originalText
+     */
     function kw(keyword, originalText) {
-        if (keywordCase === 'upper') return keyword.toUpperCase();
-        if (keywordCase === 'lower') return keyword.toLowerCase();
+        if (keywordCase === 'upper') {
+            return keyword.toUpperCase();
+        }
+        if (keywordCase === 'lower') {
+            return keyword.toLowerCase();
+        }
         return originalText || keyword;
     }
 
-    /** Apply function casing rule */
+    /**
+     * Apply function casing rule
+     *
+     * @param name
+     */
     function function_(name) {
-        if (functionCase === 'preserve') return name;
-        if (functionCase === 'upper') return name.toUpperCase();
-        if (functionCase === 'lower') return name.toLowerCase();
+        if (functionCase === 'preserve') {
+            return name;
+        }
+        if (functionCase === 'upper') {
+            return name.toUpperCase();
+        }
+        if (functionCase === 'lower') {
+            return name.toLowerCase();
+        }
         const canonical = FUNCTION_CANONICAL_MAP.get(name.toLowerCase()) || name;
         if (functionCase === 'lower-camel') {
             return canonical[0].toLowerCase() + canonical.slice(1);

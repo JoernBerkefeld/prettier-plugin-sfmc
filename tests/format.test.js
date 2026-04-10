@@ -102,7 +102,7 @@ describe('ampscriptQuoteStyle', () => {
     });
 });
 
-//── Variable casing option ───────────────────────────────────────────────────
+// ── Variable casing option ───────────────────────────────────────────────────
 
 describe('ampscriptEnforceVariableCasing', () => {
     test('normalizes variable casing to first occurrence when enabled', async () => {
