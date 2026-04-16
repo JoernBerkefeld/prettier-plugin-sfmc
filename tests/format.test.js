@@ -88,9 +88,31 @@ describe('parser', () => {
     NEXT @i
 ]%%`;
         const result = await format(input);
-        const matches = (kw) => (result.match(new RegExp(`\\b${kw}\\b`, 'gi')) || []).length;
+        const matches = (kw) =>
+            (result.match(new RegExp(String.raw`\b${kw}\b`, 'gi')) || []).length;
         expect(matches('endif')).toBe(1);
         expect(matches('next')).toBe(1);
+    });
+
+    test('cross-block FOR/IF: ENDIF aligns deeper than NEXT (matches opening IF vs FOR)', async () => {
+        const input = `%%[
+    FOR @i = 1 TO @rowCount DO
+        IF NOT EMPTY(@val) THEN
+]%%
+<li>%%=V(@val)=%%</li>
+%%[
+        ENDIF
+    NEXT @i
+]%%`;
+        const result = await format(input, { tabWidth: 4 });
+        const lines = result.split('\n').map((line) => line.replace(/\r$/, ''));
+        const endifLine = lines.find((line) => /^\s*endif\s*$/i.test(line.trim()));
+        const nextLine = lines.find((line) => /^\s*next\b/i.test(line.trim()));
+        expect(endifLine).toBeDefined();
+        expect(nextLine).toBeDefined();
+        const endifIndent = endifLine.length - endifLine.trimStart().length;
+        const nextIndent = nextLine.length - nextLine.trimStart().length;
+        expect(endifIndent).toBeGreaterThan(nextIndent);
     });
 });
 

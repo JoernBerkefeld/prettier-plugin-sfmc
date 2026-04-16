@@ -500,7 +500,15 @@ function printAmpscriptNode(path, options, print) {
         }
 
         case 'RawStatement': {
-            return kw(node.value.toLowerCase(), node.keyword);
+            const doc = kw(node.value.toLowerCase(), node.keyword);
+            const extra = node.crossBlockIndentDepth || 0;
+            if (extra === 0) {
+                return doc;
+            }
+            // Nested `indent()` does not stack visible spaces on single-line string
+            // leaves; prefix each line so cross-block ENDIF aligns with its opening IF.
+            const oneLevel = options.useTabs ? '\t' : ' '.repeat(options.tabWidth || 4);
+            return [oneLevel.repeat(extra), doc];
         }
 
         case 'Raw': {
