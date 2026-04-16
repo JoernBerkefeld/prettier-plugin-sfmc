@@ -303,12 +303,18 @@ describe('ampscriptFunctionCase', () => {
 // ── Block line breaks option ─────────────────────────────────────────────────
 
 describe('ampscriptBlockLineBreaks', () => {
-    test('adds line breaks around blocks by default', async () => {
+    test('does not add outer line breaks around blocks by default', async () => {
         const input = '<p>Hello</p>%%[\n  set @x = 1\n]%%<p>World</p>';
-        const result = await format(input);
-        // Block should be separated from surrounding content by line breaks
+        const resultDefault = await format(input);
+        const resultExplicitOff = await format(input, { ampscriptBlockLineBreaks: false });
+        // Default must match explicit false (HTML formatter may still insert a single newline).
+        expect(resultDefault).toBe(resultExplicitOff);
+    });
+
+    test('adds line breaks around blocks when explicitly enabled', async () => {
+        const input = '<p>Hello</p>%%[\n  set @x = 1\n]%%<p>World</p>';
+        const result = await format(input, { ampscriptBlockLineBreaks: true });
         const lines = result.split('\n');
-        // There should be a line with just %%[ and a line with just ]%%
         expect(lines.some((l) => l.trim() === '%%[')).toBe(true);
         expect(lines.some((l) => l.trim() === ']%%')).toBe(true);
     });
@@ -320,6 +326,54 @@ describe('ampscriptBlockLineBreaks', () => {
         // Block should be glued to surrounding text without extra line breaks
         expect(result).toMatch(/Hello%%\[/);
         expect(result).toMatch(/]%%World/);
+    });
+
+    test('when enabled, does not add leading break if block opens at BOF', async () => {
+        const input = '%%[\n  set @x = 1\n]%%';
+        const result = await format(input, { ampscriptBlockLineBreaks: true });
+        expect(result.startsWith('%%[')).toBe(true);
+        const second = await format(result, { ampscriptBlockLineBreaks: true });
+        expect(second).toBe(result);
+    });
+
+    test('when enabled, does not add leading break after UTF-8 BOM only', async () => {
+        const input = '\uFEFF%%[\n  set @x = 1\n]%%';
+        const result = await format(input, { ampscriptBlockLineBreaks: true });
+        expect(result.startsWith('\uFEFF%%[')).toBe(true);
+        const second = await format(result, { ampscriptBlockLineBreaks: true });
+        expect(second).toBe(result);
+    });
+
+    test('when enabled, does not add breaks when block is already line-isolated (LF)', async () => {
+        const input = '\n%%[\n  set @x = 1\n]%%\n';
+        const result = await format(input, { ampscriptBlockLineBreaks: true });
+        const second = await format(result, { ampscriptBlockLineBreaks: true });
+        expect(second).toBe(result);
+    });
+
+    test('when enabled, does not add breaks when block uses CRLF boundaries', async () => {
+        const input = '\r\n%%[\r\n  set @x = 1\r\n]%%\r\n';
+        const result = await format(input, { ampscriptBlockLineBreaks: true });
+        const second = await format(result, { ampscriptBlockLineBreaks: true });
+        expect(second).toBe(result);
+    });
+
+    test('when enabled, does not add breaks when closing at EOF with optional newline', async () => {
+        const noNl = '%%[\n  set @x = 1\n]%%';
+        const withNl = '%%[\n  set @x = 1\n]%%\n';
+        for (const input of [noNl, withNl]) {
+            const result = await format(input, { ampscriptBlockLineBreaks: true });
+            const second = await format(result, { ampscriptBlockLineBreaks: true });
+            expect(second).toBe(result);
+        }
+    });
+
+    test('when enabled, script-tag block on own lines stays idempotent', async () => {
+        const input =
+            '<html>\r\n<body>\r\n<script runat="server" language="ampscript">\r\n  set @x = 1\r\n</script>\r\n</body>\r\n</html>';
+        const result = await format(input, { ampscriptBlockLineBreaks: true });
+        const second = await format(result, { ampscriptBlockLineBreaks: true });
+        expect(second).toBe(result);
     });
 
     test('never affects inline expressions', async () => {

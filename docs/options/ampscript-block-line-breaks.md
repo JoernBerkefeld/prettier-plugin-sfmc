@@ -1,25 +1,31 @@
 # `ampscriptBlockLineBreaks`
 
-> Enforce blank lines before and after `%%[ … ]%%` block expressions.
+> Optionally insert line breaks before and after `%%[ … ]%%` block expressions when they are **not** already at a line boundary in the source.
 
 | | |
 |---|---|
 | **Type** | `boolean` |
-| **Default** | `true` |
+| **Default** | `false` |
 | **Applied by** | `prettier --write` · VS Code format-on-save (requires the [Prettier extension](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)) |
 
 ## What It Controls
 
-Adds an empty line before and after every AMPscript block (`%%[ … ]%%`) to visually separate logic from surrounding HTML or text content. Inline expressions (`%%= … =%%`) are never affected. Set to `false` when blocks are embedded in contexts — such as attribute values or tightly formatted output sections — where extra blank lines would break the template layout.
+When set to `true`, Prettier may add a **single** mandatory line break before the opening delimiter and/or after the closing delimiter so the block is not glued to other text on the same line (for example `</p>%%[` or `]%%<p>`).
+
+Breaks are **not** added when the opening is already at the start of a logical line (beginning of file after optional UTF-8 BOM, optional spaces/tabs only before `%%[`, or immediately after `\n` / `\r\n` / `\r`), or when the closing is already at the end of a logical line (only horizontal whitespace until the next line break or end of file). That keeps formatting **idempotent** on repeated save instead of growing extra blank lines.
+
+Inline expressions (`%%= … =%%`) are never affected.
+
+The default is `false` so SMS and other line-break–sensitive templates are not altered unless you opt in.
 
 ## Settings
 
 | Value | Effect |
 |-------|--------|
-| `true` (default) | Blank line inserted before and after every `%%[ ]%%` block |
-| `false` | No blank lines added; blocks formatted flush with surrounding content |
+| `false` (default) | No extra outer line breaks from this option; inner block layout still normalizes |
+| `true` | Add outer line breaks only where the block is not already isolated on its own line |
 
-### `true` (default)
+### `true` — inline-adjacent block
 
 **Input:**
 
@@ -30,35 +36,26 @@ set @name = "Alice"
 ]%%<p>%%=v(@name)=%%</p>
 ```
 
-**Output:**
+**Output** (illustrative; exact HTML wrapping may include normal Prettier line breaks):
 
-```html
-<p>Hello</p>
+- A line break is inserted so `%%[` is not on the same line as `</p>`.
+- A line break is inserted so `]%%` is not on the same line as `<p>`.
 
-%%[
-  var @name
-  set @name = "Alice"
-]%%
+### `true` — already line-isolated (no extra outer breaks)
 
-<p>%%= v(@name) =%%</p>
-```
+If the source already has `%%[` at the beginning of a line (after optional BOM / spaces / tabs) and `]%%` at the end of a line (before optional spaces and `\n` or EOF), enabling this option does **not** add further outer breaks, so the document does not grow on every format.
 
-### `false`
+### `false` (default)
 
-**Output:**
-
-```html
-<p>Hello</p>%%[
-  var @name
-  set @name = "Alice"
-]%%<p>%%= v(@name) =%%</p>
-```
+**Output:** blocks stay flush with surrounding content except for whatever the HTML / AMPscript printers do for normal indentation and line wrapping.
 
 ## Configuration Example
+
+Opt in when you want blocks separated from inline HTML only where needed:
 
 ```json
 {
     "plugins": ["prettier-plugin-sfmc"],
-    "ampscriptBlockLineBreaks": false
+    "ampscriptBlockLineBreaks": true
 }
 ```

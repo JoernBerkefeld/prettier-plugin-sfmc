@@ -8,6 +8,7 @@
 
 import * as prettier from 'prettier';
 import { FUNCTION_CANONICAL_MAP, AMPSCRIPT_KEYWORDS } from 'ampscript-data';
+import { needsLeadingBlockBreak, needsTrailingBlockBreak } from './ampscript-block-boundaries.js';
 
 const { group, indent, join, line, softline, hardline } = prettier.doc.builders;
 
@@ -203,7 +204,7 @@ function printAmpscriptNode(path, options, print) {
     const variableStyle = options.ampscriptVarDeclarationStyle || 'multi-line';
     const keywordCase = options.ampscriptKeywordCase || 'lower';
     const functionCase = options.ampscriptFunctionCase || 'upper-camel';
-    const blockLineBreaks = options.ampscriptBlockLineBreaks !== false;
+    const blockLineBreaks = options.ampscriptBlockLineBreaks === true;
 
     function resolveVariable(variableName) {
         if (!enforceCasing) {
@@ -295,8 +296,21 @@ function printAmpscriptNode(path, options, print) {
                 blockClose,
             ]);
             if (blockLineBreaks) {
-                return [hardline, blockDocument, hardline];
+                const originalText = options.originalText;
+                const parts = [];
+                if (needsLeadingBlockBreak(originalText, node.start)) {
+                    parts.push(hardline);
+                }
+
+                parts.push(blockDocument);
+
+                if (needsTrailingBlockBreak(originalText, node.end)) {
+                    parts.push(hardline);
+                }
+
+                return parts.length === 1 ? parts[0] : parts;
             }
+
             return blockDocument;
         }
 

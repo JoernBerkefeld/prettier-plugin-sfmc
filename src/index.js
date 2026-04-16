@@ -333,11 +333,12 @@ const sfmcOptions = {
     ampscriptBlockLineBreaks: {
         type: 'boolean',
         category: 'AMPscript',
-        default: true,
+        default: false,
         description:
-            'Enforce line breaks before and after %%[ ... ]%% blocks. ' +
+            'When true, insert line breaks before and after %%[ ... ]%% blocks only when the ' +
+            'opening/closing delimiters are not already at a line boundary in the source. ' +
             'Inline expressions (%%= ... =%%) are never affected. ' +
-            'Set to false when blocks are embedded in contexts where extra line breaks are unwanted.',
+            'Default is false to avoid surprising line breaks in SMS and similar contexts.',
     },
     ampscriptVarDeclarationStyle: {
         type: 'choice',
