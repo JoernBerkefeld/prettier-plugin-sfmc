@@ -76,6 +76,22 @@ describe('parser', () => {
         expect(result).toContain('for @i = 1 to 10 do');
         expect(result).toContain('next @i');
     });
+
+    test('cross-block FOR/IF: does not inject ENDIF/NEXT into the opening block', async () => {
+        const input = `%%[
+    FOR @i = 1 TO @rowCount DO
+        IF NOT EMPTY(@val) THEN
+]%%
+<li>%%=V(@val)=%%</li>
+%%[
+        ENDIF
+    NEXT @i
+]%%`;
+        const result = await format(input);
+        const matches = (kw) => (result.match(new RegExp(`\\b${kw}\\b`, 'gi')) || []).length;
+        expect(matches('endif')).toBe(1);
+        expect(matches('next')).toBe(1);
+    });
 });
 
 // ── Spacing option ───────────────────────────────────────────────────────────

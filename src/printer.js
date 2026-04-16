@@ -370,7 +370,11 @@ function printAmpscriptNode(path, options, print) {
             for (const altDocument of altDocs) {
                 parts.push(altDocument);
             }
-            parts.push([hardline, kw('endif', okw.endif)]);
+            // Only emit endif when the parser saw it in this block (cross-block
+            // IF/ENDIF spans multiple %%[ ]%% segments; missing endif is intentional).
+            if ('endif' in okw) {
+                parts.push([hardline, kw('endif', okw.endif)]);
+            }
             return parts;
         }
 
@@ -426,7 +430,11 @@ function printAmpscriptNode(path, options, print) {
             if (node.body.length > 0) {
                 parts.push(indent([hardline, join(hardline, path.map(print, 'body'))]));
             }
-            parts.push([hardline, kw('next', okw.next), ' ', counterDocument]);
+            // Only emit next when the parser saw it in this block (cross-block
+            // FOR/NEXT spans multiple %%[ ]%% segments; missing next is intentional).
+            if ('next' in okw) {
+                parts.push([hardline, kw('next', okw.next), ' ', counterDocument]);
+            }
             return parts;
         }
 
