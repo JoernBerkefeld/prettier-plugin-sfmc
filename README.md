@@ -52,13 +52,15 @@ All options use the `ampscript` prefix — they control AMPscript formatting beh
 
 ## Supported File Types
 
-| Extension    | Parser             | What happens                                    |
-| ------------ | ------------------ | ----------------------------------------------- |
-| `.ampscript` | `ampscript-parse`  | Full AMPscript formatting                       |
-| `.amp`       | `ampscript-parse`  | Full AMPscript formatting                       |
-| `.html`      | `ampscript-parse`  | AMPscript formatted; HTML delegated to Prettier |
-| `.ssjs`      | `babel` (built-in) | Standard JavaScript formatting                  |
-| `.sql`       | `sql`              | SQL via composed `prettier-plugin-sql`          |
+| Extension    | VS Code language ID | Parser             | What happens                                                                    |
+| ------------ | ------------------- | ------------------ | ------------------------------------------------------------------------------- |
+| `.ampscript` | `ampscript`         | `ampscript-parse`  | Full AMPscript formatting                                                       |
+| `.amp`       | `ampscript`         | `ampscript-parse`  | Full AMPscript formatting                                                       |
+| `.html`      | `sfmc`              | `ampscript-parse`  | AMPscript formatted; HTML and `<script runat="server">` delegated to Prettier's built-in HTML formatter |
+| `.ssjs`      | `ssjs`              | `babel` (built-in) | Standard JavaScript formatting                                                  |
+| `.sql`       | —                   | `sql`              | SQL via composed `prettier-plugin-sql`                                          |
+
+`.html` files are auto-detected as `sfmc` by the `vscode-sfmc-language` extension (v1.6.0+) when they contain AMPscript or SSJS content. Plain HTML files (language ID `html`) are out of scope and handled by Prettier's built-in HTML formatter directly.
 
 ## Core Prettier defaults (AMPscript, HTML, SQL, JavaScript / SSJS)
 

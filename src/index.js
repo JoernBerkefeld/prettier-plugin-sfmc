@@ -49,8 +49,14 @@ export const languages = [
     {
         name: 'AMPscript',
         parsers: ['ampscript-parse'],
-        extensions: ['.ampscript', '.amp', '.html'],
+        extensions: ['.ampscript', '.amp'],
         vscodeLanguageIds: ['ampscript'],
+    },
+    {
+        name: 'SFMC (AMPscript / SSJS)',
+        parsers: ['ampscript-parse'],
+        extensions: ['.html'],
+        vscodeLanguageIds: ['sfmc'],
     },
     {
         name: 'SSJS',
