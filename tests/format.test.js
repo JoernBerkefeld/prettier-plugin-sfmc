@@ -57,7 +57,7 @@ describe('parser', () => {
     test('parses inline expressions', async () => {
         const input = readFixture('simple-block.ampscript');
         const result = await format(input);
-        expect(result).toContain('V(@name)');
+        expect(result).toContain('v(@name)');
         expect(result).toContain('=%%');
     });
 
@@ -122,13 +122,13 @@ describe('ampscriptSpacing', () => {
     test('enforces spacing in inline expressions when enabled (default)', async () => {
         const input = '%%=v(@name)=%%';
         const result = await format(input, { ampscriptSpacing: true });
-        expect(result).toContain('%%= V(@name) =%%');
+        expect(result).toContain('%%= v(@name) =%%');
     });
 
     test('does not add spacing in inline expressions when disabled', async () => {
         const input = '%%=v(@name)=%%';
         const result = await format(input, { ampscriptSpacing: false });
-        expect(result).toContain('%%=V(@name)=%%');
+        expect(result).toContain('%%=v(@name)=%%');
     });
 
     test('normalizes inconsistent spacing in set statements', async () => {
@@ -419,8 +419,8 @@ describe('ampscriptBlockLineBreaks', () => {
         const resultOn = await format(input, { ampscriptBlockLineBreaks: true });
         const resultOff = await format(input, { ampscriptBlockLineBreaks: false });
         // Inline expressions must stay inline regardless of setting
-        expect(resultOn).toContain('Hello %%= V(@name) =%%!');
-        expect(resultOff).toContain('Hello %%= V(@name) =%%!');
+        expect(resultOn).toContain('Hello %%= v(@name) =%%!');
+        expect(resultOff).toContain('Hello %%= v(@name) =%%!');
     });
 });
 
@@ -444,7 +444,7 @@ describe('HTML embedding', () => {
     test('formats inline expressions inside HTML text', async () => {
         const input = '<p>Hello %%= v(@name) =%%!</p>';
         const result = await format(input);
-        expect(result).toContain('%%= V(@name) =%%');
+        expect(result).toContain('%%= v(@name) =%%');
         expect(result).toContain('<p>');
     });
 
@@ -472,7 +472,7 @@ describe('HTML embedding', () => {
         const input = '<a href="%%=RedirectTo(v(@url))=%%">Click</a>';
         const result = await format(input);
         expect(result).toContain('RedirectTo(');
-        expect(result).toContain('V(@url)');
+        expect(result).toContain('v(@url)');
         expect(result).toContain('<a');
     });
 });
@@ -634,7 +634,7 @@ describe('ampscriptRemoveUnnecessaryBrackets precedence cases', () => {
         const result = await format(input, { ampscriptRemoveUnnecessaryBrackets: true });
         expect(result).toContain("set @x = Lookup('DE', 'Field', 'Key', @val)");
         expect(result).toContain('set @y = @var');
-        expect(result).toContain('set @z = V(@name)');
+        expect(result).toContain('set @z = v(@name)');
     });
 
     test('removes parens when inner precedence > parent precedence', async () => {
