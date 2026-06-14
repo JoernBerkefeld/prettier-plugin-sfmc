@@ -12,6 +12,9 @@ import { needsLeadingBlockBreak, needsTrailingBlockBreak } from './ampscript-blo
 
 const { group, indent, join, line, softline, hardline } = prettier.doc.builders;
 
+/** Lowercase keyword names for casing normalization (AMPSCRIPT_KEYWORDS is an object array). */
+const AMPSCRIPT_KEYWORD_NAMES = new Set(AMPSCRIPT_KEYWORDS.map((k) => k.name.toLowerCase()));
+
 /**
  * Collect all variable names in first-occurrence order for consistent casing.
  *
@@ -478,7 +481,7 @@ function printAmpscriptNode(path, options, print) {
             const left = print('left');
             const right = print('right');
             const opLower = node.operator.toLowerCase();
-            const op = AMPSCRIPT_KEYWORDS.includes(opLower)
+            const op = AMPSCRIPT_KEYWORD_NAMES.has(opLower)
                 ? kw(node.operator, node.originalOperator)
                 : node.operator;
             if (opLower === 'and' || opLower === 'or') {
