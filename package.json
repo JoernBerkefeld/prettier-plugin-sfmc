@@ -1,6 +1,6 @@
 {
     "name": "prettier-plugin-sfmc",
-    "version": "0.6.0",
+    "version": "1.0.0",
     "description": "Prettier plugin for Salesforce Marketing Cloud - AMPscript, Marketing Cloud Next Handlebars, SSJS, and SQL formatting",
     "type": "module",
     "main": "src/index.js",
