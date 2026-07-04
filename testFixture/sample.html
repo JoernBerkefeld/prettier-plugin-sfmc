@@ -1,0 +1,35 @@
+<html>
+    <body>
+        %%[
+            set @greeting = Concat('Hello, ', @firstName)
+        ]%%
+        <p>%%= v(@greeting) =%%</p>
+
+        <!-- MCN Handlebars: whitespace normalized; known helpers recased -->
+        <!-- (try: --opt handlebarsHelperCase=upper-camel  and  --opt handlebarsSpacing=true) -->
+        <p>Welcome {{firstName}}!</p>
+        <p>{{formatCurrency order.total}}</p>
+
+        <ul>
+            {{#each items as |item index|}}
+            <li>{{item.title}} — {{multiply item.qty item.price}}</li>
+            {{/each}}
+        </ul>
+
+        <!-- String literals are preserved byte-for-byte -->
+        <p>{{concat "a   b   c"}}</p>
+        <p>{{concat 'x   y   z'}}</p>
+
+        <!-- Triple-stache keeps its delimiters -->
+        <p>{{{rawHtml}}}</p>
+
+        <!-- Handlebars comments are preserved verbatim -->
+        {{! keep    this    spacing }} {{!--  block   comment  --}}
+
+        <!-- {!$…} SFMC bindings are never touched -->
+        <p>Contact: {!$Contact.Email}</p>
+
+        <!-- Unbalanced mustache is left as-is, no error -->
+        <p>{{#if broken}}</p>
+    </body>
+</html>

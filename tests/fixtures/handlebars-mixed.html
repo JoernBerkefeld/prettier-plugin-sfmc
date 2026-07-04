@@ -1,0 +1,13 @@
+<html>
+<body>
+%%[ SET @greeting = CONCAT("Hello, ", @firstName) ]%%
+<p>%%= v(@greeting) =%%</p>
+<p>Welcome {{   firstName   }}!</p>
+<ul>
+{{#each   items   as |item index|}}
+<li>{{   item.title   }} — {{formatDate   item.date   "yyyy-MM-dd"}}</li>
+{{/each}}
+</ul>
+<p>Contact: {!$Contact.Email}</p>
+</body>
+</html>

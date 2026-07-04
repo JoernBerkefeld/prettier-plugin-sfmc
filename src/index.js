@@ -11,6 +11,7 @@
  */
 
 import { parse } from 'ampscript-parser';
+import { getHelper } from 'handlebars-data';
 import sqlPlugin from 'prettier-plugin-sql';
 import { printers as prettierEstreePrinters } from 'prettier/plugins/estree';
 import { printAmpscriptNode, collectVariableMap } from './printer.js';
@@ -43,6 +44,292 @@ function mergeSqlOptionsWithSfmcDefaults(sqlOptions) {
     return merged;
 }
 
+// ── Handlebars (MCN) inner normalization ─────────────────────────────────────
+
+/**
+ * Recase a Handlebars helper name using the `handlebars-data` catalog.
+ *
+ * Only names that exist in the catalog (via `getHelper`) are recased; unknown
+ * paths (`firstName`, `item.title`) are returned unchanged in every mode. MCN
+ * Handlebars is case-insensitive at runtime, so recasing a known helper is safe.
+ * Catalog names are lower-camel canonical (e.g. `formatDate`), so `upper-camel`
+ * simply capitalizes the first character of the canonical form.
+ *
+ * @param {string} name Head token as written in the source.
+ * @param {'upper-camel'|'lower-camel'|'upper'|'lower'|'preserve'} mode Casing mode.
+ * @returns {string} Recased name, or the original `name` when not a known helper.
+ */
+function applyHelperCase(name, mode) {
+    if (mode === 'preserve') {
+        return name;
+    }
+    const helper = getHelper(name);
+    if (!helper) {
+        return name;
+    }
+    const canonical = helper.name;
+    if (mode === 'upper') {
+        return canonical.toUpperCase();
+    }
+    if (mode === 'lower') {
+        return canonical.toLowerCase();
+    }
+    if (mode === 'lower-camel') {
+        return canonical[0].toLowerCase() + canonical.slice(1);
+    }
+    // upper-camel
+    return canonical[0].toUpperCase() + canonical.slice(1);
+}
+
+/** Leading sigils that may precede the head token of a mustache. */
+const MUSTACHE_SIGILS = new Set(['#', '/', '^', '>', '&']);
+
+/**
+ * A head token is eligible for recasing only when it is a bare helper name:
+ * a single identifier segment with no path separators (`.` / `/`), no `@`
+ * data-variable prefix, and no `=` (hash key). This keeps `item.title`,
+ * `@index`, and `key=value` untouched while still recasing `formatDate`.
+ *
+ * @param {string} token Candidate head token.
+ * @returns {boolean} True when the token is a bare, recasable name.
+ */
+function isBareName(token) {
+    return /^[A-Za-z_]\w*$/.test(token);
+}
+
+/**
+ * Normalize the inner text of a single Handlebars expression.
+ *
+ * Whitespace outside quoted string literals is collapsed to a single space and
+ * trimmed. When `helperCase` is not `preserve`, the head token (the first token
+ * after an optional leading sigil) and the head token of every subexpression
+ * (first token after each `(`) are recased via {@link applyHelperCase} — but
+ * only when they are known catalog helpers. String literals, paths, hash keys,
+ * block params (`as |x y|`), and unknown names are preserved byte-for-byte.
+ *
+ * Padding of the outer expression (per `handlebarsSpacing`) is applied by the
+ * caller, not here.
+ *
+ * @param {string} inner Raw inner text of a mustache expression.
+ * @param {{ helperCase?: 'upper-camel'|'lower-camel'|'upper'|'lower'|'preserve' }} [opts] Options.
+ * @returns {string} Normalized inner text (collapsed whitespace, recased heads).
+ */
+function normalizeMustacheInner(inner, opts = {}) {
+    const helperCase = opts.helperCase || 'lower-camel';
+
+    // First pass: collapse whitespace outside string literals, preserving quotes.
+    let collapsed = '';
+    /** @type {string|null} */
+    let quote = null;
+    for (const ch of inner) {
+        if (quote) {
+            collapsed += ch;
+            if (ch === quote) {
+                quote = null;
+            }
+            continue;
+        }
+        if (ch === '"' || ch === "'") {
+            quote = ch;
+            collapsed += ch;
+            continue;
+        }
+        if (ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r' || ch === '\f' || ch === '\v') {
+            if (collapsed.length > 0 && collapsed.at(-1) !== ' ') {
+                collapsed += ' ';
+            }
+            continue;
+        }
+        collapsed += ch;
+    }
+    collapsed = collapsed.trim();
+
+    if (helperCase === 'preserve' || collapsed.length === 0) {
+        return collapsed;
+    }
+
+    // Second pass: recase the head token and each subexpression head token.
+    // A head is expected at the very start (after an optional sigil) and
+    // immediately after each `(`. We walk the collapsed string, tracking string
+    // literals so `(` / heads inside quotes are ignored.
+    let result = '';
+    quote = null;
+    let expectHead = true;
+    let leadingSigilConsumed = false;
+    let i = 0;
+    const n = collapsed.length;
+    while (i < n) {
+        const ch = collapsed[i];
+        if (quote) {
+            result += ch;
+            if (ch === quote) {
+                quote = null;
+            }
+            i++;
+            continue;
+        }
+        if (ch === '"' || ch === "'") {
+            quote = ch;
+            result += ch;
+            expectHead = false;
+            i++;
+            continue;
+        }
+        // At the outermost head position, skip a single leading sigil.
+        if (expectHead && !leadingSigilConsumed && result.length === 0 && MUSTACHE_SIGILS.has(ch)) {
+            result += ch;
+            leadingSigilConsumed = true;
+            i++;
+            continue;
+        }
+        if (ch === '(') {
+            result += ch;
+            expectHead = true;
+            i++;
+            continue;
+        }
+        if (ch === ' ') {
+            result += ch;
+            i++;
+            continue;
+        }
+        if (expectHead) {
+            // Read the head token up to the next whitespace, `(`, `)`, or quote.
+            let j = i;
+            while (j < n && !/[\s()'"]/.test(collapsed[j])) {
+                j++;
+            }
+            const token = collapsed.slice(i, j);
+            result += isBareName(token) ? applyHelperCase(token, helperCase) : token;
+            expectHead = false;
+            i = j;
+            continue;
+        }
+        result += ch;
+        i++;
+    }
+    return result;
+}
+
+/**
+ * Token placeholder prefix used to shield MCN Handlebars `{{…}}` regions from
+ * Prettier's HTML parser (which would otherwise collapse whitespace inside string
+ * literals and reflow mustaches). Mirrors the `AMPSCRIPTPH…END` scheme.
+ */
+const HANDLEBARS_PH = 'HANDLEBARSPH';
+
+/**
+ * Extract every well-formed MCN Handlebars `{{…}}` region from a string, replacing
+ * each with a `HANDLEBARSPH<n>END` placeholder and recording the normalized
+ * replacement text. The HTML parser then never sees mustache internals, so it
+ * cannot corrupt string literals or reflow them; normalization happens here.
+ *
+ * Guarantees:
+ * - `{!$…}` merge-field bindings are never matched (they use single braces).
+ * - AMPscript delimiters and `AMPSCRIPTPH…END` placeholders are never matched
+ *   (they contain no `{{`).
+ * - Handlebars comments (`{{! … }}`, `{{!-- … --}}`) are recorded verbatim.
+ * - Triple-stache (`{{{ … }}}`) and the `&` sigil are preserved (not rewritten).
+ * - String literals inside an expression keep their exact bytes and quote style.
+ * - Unbalanced/never-closed mustaches are left verbatim in the returned string
+ *   (no throw, no change), so the HTML parser passes them through untouched.
+ *
+ * @param {string} text Joined HTML/text (AMPscript already placeholdered).
+ * @param {{ spacing?: boolean, helperCase?: 'upper-camel'|'lower-camel'|'upper'|'lower'|'preserve' }} [opts]
+ * Formatting options: `spacing` pads simple/triple mustaches (sigil mustaches stay
+ * tight); `helperCase` recases known catalog helpers at head positions.
+ * @returns {{ html: string, tokens: string[] }} Text with Handlebars placeholders
+ * and the ordered list of normalized mustache replacements.
+ */
+function extractHandlebarsRegions(text, opts = {}) {
+    const spacing = opts.spacing === true;
+    const helperCase = opts.helperCase || 'lower-camel';
+    /** @type {string[]} */
+    const tokens = [];
+    if (typeof text !== 'string' || !text.includes('{{')) {
+        return { html: text, tokens };
+    }
+
+    let out = '';
+    let i = 0;
+    const n = text.length;
+    while (i < n) {
+        const open = text.indexOf('{{', i);
+        if (open === -1) {
+            out += text.slice(i);
+            break;
+        }
+        out += text.slice(i, open);
+
+        const isTriple = text[open + 2] === '{';
+        const openLen = isTriple ? 3 : 2;
+        const afterOpen = text.slice(open + openLen);
+
+        // Comments: record verbatim, never normalize their contents.
+        if (!isTriple && afterOpen.startsWith('!')) {
+            const isBlock = afterOpen.startsWith('!--');
+            const closeStr = isBlock ? '--}}' : '}}';
+            const close = text.indexOf(closeStr, open + openLen);
+            if (close === -1) {
+                out += text.slice(open);
+                break;
+            }
+            const end = close + closeStr.length;
+            tokens.push(text.slice(open, end));
+            out += `${HANDLEBARS_PH}${tokens.length - 1}END`;
+            i = end;
+            continue;
+        }
+
+        // Scan for the closing delimiter, ignoring `}}` inside string literals.
+        const closeDelim = isTriple ? '}}}' : '}}';
+        /** @type {string|null} */
+        let quote = null;
+        let j = open + openLen;
+        let foundClose = -1;
+        while (j < n) {
+            const ch = text[j];
+            if (quote) {
+                if (ch === quote) {
+                    quote = null;
+                }
+                j++;
+                continue;
+            }
+            if (ch === '"' || ch === "'") {
+                quote = ch;
+                j++;
+                continue;
+            }
+            if (text.startsWith(closeDelim, j)) {
+                foundClose = j;
+                break;
+            }
+            j++;
+        }
+
+        if (foundClose === -1) {
+            // Unbalanced — leave the remainder exactly as-is for the HTML parser.
+            out += text.slice(open);
+            break;
+        }
+
+        const inner = text.slice(open + openLen, foundClose);
+        const opener = text.slice(open, open + openLen);
+        const normalized = normalizeMustacheInner(inner, { helperCase });
+        // Pad simple mustaches (`{{ … }}`) and triple-stache (`{{{ … }}}`) when
+        // `spacing` is enabled; sigil mustaches (`{{#…}}`, `{{/…}}`, `{{^…}}`,
+        // `{{>…}}`, `{{&…}}`) always stay tight.
+        const hasSigil = MUSTACHE_SIGILS.has(normalized[0]);
+        const pad = spacing && !hasSigil && normalized.length > 0 ? ' ' : '';
+        tokens.push(`${opener}${pad}${normalized}${pad}${closeDelim}`);
+        out += `${HANDLEBARS_PH}${tokens.length - 1}END`;
+        i = foundClose + closeDelim.length;
+    }
+
+    return { html: out, tokens };
+}
+
 // ── Languages ────────────────────────────────────────────────────────────────
 
 export const languages = [
@@ -57,6 +344,12 @@ export const languages = [
         parsers: ['ampscript-parse'],
         extensions: ['.html'],
         vscodeLanguageIds: ['sfmc'],
+    },
+    {
+        name: 'Handlebars (MCN)',
+        parsers: ['ampscript-parse'],
+        extensions: ['.hbs'],
+        vscodeLanguageIds: ['handlebars'],
     },
     {
         name: 'SSJS',
@@ -125,7 +418,12 @@ export const printers = {
             const hasHtml = node.children.some(
                 (c) => c.type === 'Content' && /<[a-zA-Z!/]/.test(c.value),
             );
-            if (!hasHtml) {
+            // Pure `.hbs` documents may contain no HTML tags at all — still run
+            // the embed path so `{{…}}` mustaches are normalized.
+            const hasHandlebars = node.children.some(
+                (c) => c.type === 'Content' && c.value.includes('{{'),
+            );
+            if (!hasHtml && !hasHandlebars) {
                 return;
             }
 
@@ -146,7 +444,17 @@ export const printers = {
                     }
                 }
 
-                const html = htmlParts.join('');
+                // Shield MCN Handlebars {{…}} from the HTML parser (which would
+                // otherwise collapse whitespace inside string literals). The
+                // mustache text is normalized (whitespace, helper casing, and
+                // optional padding) during extraction.
+                const { html, tokens: handlebarsTokens } = extractHandlebarsRegions(
+                    htmlParts.join(''),
+                    {
+                        spacing: options.handlebarsSpacing === true,
+                        helperCase: options.handlebarsHelperCase || 'lower-camel',
+                    },
+                );
 
                 let htmlDocument;
                 try {
@@ -155,12 +463,12 @@ export const printers = {
                     return;
                 }
 
-                const re = new RegExp(String.raw`${PH}(\d+)END`, 'g');
+                const re = new RegExp(String.raw`(?:${PH}(\d+)END|${HANDLEBARS_PH}(\d+)END)`, 'g');
                 return prettier.doc.utils.mapDoc(htmlDocument, (d) => {
                     if (typeof d !== 'string') {
                         return d;
                     }
-                    if (!d.includes(PH)) {
+                    if (!d.includes(PH) && !d.includes(HANDLEBARS_PH)) {
                         return d;
                     }
 
@@ -172,7 +480,11 @@ export const printers = {
                         if (m.index > last) {
                             parts.push(d.slice(last, m.index));
                         }
-                        parts.push(print(['children', Number.parseInt(m[1], 10)]));
+                        if (m[1] === undefined) {
+                            parts.push(handlebarsTokens[Number.parseInt(m[2], 10)]);
+                        } else {
+                            parts.push(print(['children', Number.parseInt(m[1], 10)]));
+                        }
                         last = m.index + m[0].length;
                     }
                     if (last < d.length) {
@@ -367,6 +679,41 @@ const sfmcOptions = {
             },
         ],
         description: 'Control how var declarations with multiple variables are formatted.',
+    },
+    handlebarsSpacing: {
+        type: 'boolean',
+        category: 'Handlebars',
+        default: false,
+        description:
+            'Pad the inside of Marketing Cloud Next `{{…}}` expressions. ' +
+            'When true, simple mustaches and triple-stache get one space of padding ' +
+            '(`{{ foo bar }}`, `{{{ raw }}}`); sigil mustaches (`{{#each}}`, `{{/each}}`, ' +
+            '`{{^x}}`, `{{>p}}`, `{{&x}}`) always stay tight. When false (default), all ' +
+            'mustaches are tight. Internal runs of whitespace collapse to a single space ' +
+            'either way, and string literals are preserved.',
+    },
+    handlebarsHelperCase: {
+        type: 'choice',
+        category: 'Handlebars',
+        default: 'lower-camel',
+        choices: [
+            {
+                value: 'upper-camel',
+                description: 'Canonical PascalCase: FormatDate, TruncateWords',
+            },
+            {
+                value: 'lower-camel',
+                description: 'camelCase: formatDate, truncateWords',
+            },
+            { value: 'upper', description: 'UPPERCASE: FORMATDATE, TRUNCATEWORDS' },
+            { value: 'lower', description: 'lowercase: formatdate, truncatewords' },
+            { value: 'preserve', description: 'Keep original helper casing' },
+        ],
+        description:
+            'Control the casing of Marketing Cloud Next Handlebars helper names. ' +
+            'Only names found in the handlebars-data catalog are recased, at the ' +
+            'mustache head, block open/close, and subexpression heads. Unknown paths ' +
+            '(e.g. `firstName`, `item.title`) are always preserved.',
     },
 };
 

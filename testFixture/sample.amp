@@ -1,0 +1,32 @@
+%%[
+/* AMPscript-only sample — intentionally messy input to show formatting.
+   Save (format-on-save) or run Format Document to see it cleaned up. */
+
+set    @subscriberKey =    _subscriberkey
+SET @email=EmailAddress
+set @firstName   =   Lookup(  "Subscribers" , "FirstName" , "SubscriberKey" , @subscriberKey )
+Set @lastName = Lookup("Subscribers","LastName","SubscriberKey",@subscriberKey)
+set @fullName=Concat(@firstName," ",@lastName)
+
+/* rowset lookup + count */
+set @rows = LookupRows( "Preferences" , "SubscriberKey" , @subscriberKey )
+set @count=RowCount(@rows)
+
+if @count>0 then
+set @first=Row(@rows,1)
+set @prefName=Field(@first,"PreferenceName")
+elseif @count==0 then
+set @prefName="none"
+else
+set @prefName="unknown"
+endif
+
+for @i=1 to @count do
+set @r=Row(@rows,@i)
+set @name=Field(@r,"PreferenceName")
+next @i
+]%%
+
+<h1>Hello, %%= v(@fullName) =%%!</h1>
+<p>Email: %%=v(@email)=%%</p>
+<p>Today: %%= Format( Now() , "yyyy-MM-dd" ) =%%</p>

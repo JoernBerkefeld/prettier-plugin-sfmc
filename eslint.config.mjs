@@ -123,4 +123,13 @@ export default [
             'jsdoc/require-returns': 'off',
         },
     },
+    {
+        // Ad-hoc CLI harness — console output and process.exit are intentional.
+        files: ['testFixture/**/*.{js,mjs,cjs}'],
+        rules: {
+            'unicorn/import-style': 'off',
+            'unicorn/no-process-exit': 'off',
+            'no-console': 'off',
+        },
+    },
 ];

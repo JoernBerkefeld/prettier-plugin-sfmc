@@ -1,0 +1,19 @@
+{
+    "// prettier-plugin-sfmc live test window": "Open this folder as its own VS Code/Cursor window (see the 'prettier-plugin-sfmc: live edit window' launch config). Edit sample.html / sample.hbs and save to see the plugin format live.",
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true,
+    "prettier.enable": true,
+    "prettier.configPath": ".prettierrc.json",
+    "prettier.documentSelectors": ["**/*.hbs", "**/*.amp", "**/*.ampscript"],
+    "files.associations": {
+        "*.hbs": "handlebars",
+        "*.amp": "html",
+        "*.ampscript": "html"
+    },
+    "[handlebars]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[html]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    }
+}

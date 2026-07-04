@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Mixed AMPscript + SSJS + Handlebars sample</title>
+    </head>
+    <body>
+        <!-- AMPscript block: messy spacing/casing gets normalized -->
+        %%[
+        set @subscriberKey=_subscriberkey
+        set @firstName = Lookup( "Subscribers" , "FirstName" , "SubscriberKey" , @subscriberKey )
+        set @count=RowCount(LookupRows("Preferences","SubscriberKey",@subscriberKey))
+        ]%%
+
+        <h1>Welcome, %%= v(@firstName) =%%!</h1>
+
+        <!-- SSJS block: routed through babel -->
+        <script runat="server">
+            Platform.Load("core","1.1.5");
+            var prox=new Script.Util.WSProxy();
+            var result=prox.retrieve("DataExtensionObject[MyDE]",["Email","Status"],{Property:"Status",SimpleOperator:"equals",Value:"Active"});
+            if(result&&result.Results){for(var i=0;i<result.Results.length;i++){Write(result.Results[i].Properties[0].Value);}}
+        </script>
+
+        <!-- AMPscript inline + control flow interleaved with HTML -->
+        <div class="content">
+            <p>Date: %%= Format( Now() , "yyyy-MM-dd" ) =%%</p>
+
+            %%[ if @count > 0 then ]%%
+            <ul>
+                {{#each preferences as |pref index|}}
+                <li>{{pref.name}} — {{formatCurrency pref.value}}</li>
+                {{/each}}
+            </ul>
+            %%[ else ]%%
+            <p>No preferences set.</p>
+            %%[ endif ]%%
+        </div>
+
+        <!-- Marketing Cloud Next Handlebars: whitespace normalized, known helpers recased -->
+        <!-- (try: --opt handlebarsHelperCase=upper-camel  and  --opt handlebarsSpacing=true) -->
+        <p>Hello {{firstName}}, you have {{multiply cartCount 1}} items.</p>
+
+        <!-- String literals preserved byte-for-byte -->
+        <p>{{concat "a   b   c"}}</p>
+
+        <!-- Triple-stache keeps delimiters; comments preserved verbatim -->
+        <p>{{{rawHtml}}}</p>
+        {{! keep    this    spacing }}
+
+        <!-- {!$…} SFMC binding is never touched -->
+        <p>Contact: {!$Contact.Email}</p>
+    </body>
+</html>

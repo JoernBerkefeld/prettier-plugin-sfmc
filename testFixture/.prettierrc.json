@@ -1,0 +1,13 @@
+{
+    "plugins": ["../src/index.js"],
+    "ampscriptSpacing": true,
+    "ampscriptEnforceVariableCasing": true,
+    "ampscriptRemoveUnnecessaryBrackets": true,
+    "ampscriptQuoteStyle": "single",
+    "ampscriptKeywordCase": "lower",
+    "ampscriptFunctionCase": "upper-camel",
+    "ampscriptBlockLineBreaks": false,
+    "ampscriptVarDeclarationStyle": "multi-line",
+    "handlebarsSpacing": false,
+    "handlebarsHelperCase": "lower-camel"
+}

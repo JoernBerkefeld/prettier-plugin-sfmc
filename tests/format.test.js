@@ -477,6 +477,211 @@ describe('HTML embedding', () => {
     });
 });
 
+// ── Handlebars (MCN) ─────────────────────────────────────────────────────────
+
+describe('Handlebars (MCN)', () => {
+    test('collapses inner whitespace and trims padding in a mustache', async () => {
+        const input = '<p>{{ foo   bar }}</p>';
+        const result = await format(input);
+        expect(result).toContain('{{foo bar}}');
+        expect(result).not.toContain('{{ foo');
+        expect(result).not.toContain('foo   bar');
+    });
+
+    test('normalizes a helper call with arguments', async () => {
+        const input = '<p>{{formatDate   pubDate   "yyyy-MM-dd"}}</p>';
+        const result = await format(input);
+        expect(result).toContain('{{formatDate pubDate "yyyy-MM-dd"}}');
+    });
+
+    test('preserves whitespace inside double-quoted string literals', async () => {
+        const input = '<p>{{concat   "a   b"   c}}</p>';
+        const result = await format(input);
+        expect(result).toContain('{{concat "a   b" c}}');
+    });
+
+    test('preserves whitespace and quote style inside single-quoted string literals', async () => {
+        const input = "<p>{{concat   'x   y'}}</p>";
+        const result = await format(input);
+        expect(result).toContain("{{concat 'x   y'}}");
+    });
+
+    test('leaves {!$…} merge-field bindings byte-for-byte intact', async () => {
+        const input = '<p>{!$Contact.Email}</p>';
+        const result = await format(input);
+        expect(result).toContain('{!$Contact.Email}');
+    });
+
+    test('formats mustaches alongside an untouched {!$…} binding', async () => {
+        const input = '<p>{{ foo   bar }} and {!$Contact.Email}</p>';
+        const result = await format(input);
+        expect(result).toContain('{{foo bar}}');
+        expect(result).toContain('{!$Contact.Email}');
+    });
+
+    test('does not disturb AMPscript blocks next to a mustache', async () => {
+        const input = '<div>%%[ set @x = 1 ]%%{{ formatDate   x }}</div>';
+        const result = await format(input);
+        expect(result).toContain('set @x = 1');
+        expect(result).toContain('{{formatDate x}}');
+    });
+
+    test('preserves Handlebars block comments verbatim', async () => {
+        const input = '<p>{{!--  keep   me  --}}</p>';
+        const result = await format(input);
+        expect(result).toContain('{{!--  keep   me  --}}');
+    });
+
+    test('preserves triple-stache delimiters (no rewrite of raw output)', async () => {
+        const input = '<p>{{{  raw   x  }}}</p>';
+        const result = await format(input);
+        expect(result).toContain('{{{raw x}}}');
+    });
+
+    test('malformed {{#if}} with no close does not throw and is left unchanged', async () => {
+        const input = '<p>{{#if a}}x</p>';
+        const result = await format(input);
+        expect(result).toContain('{{#if a}}x');
+    });
+
+    test('is idempotent (format twice equals format once)', async () => {
+        const input = readFixture('handlebars-mixed.html');
+        const once = await format(input);
+        const twice = await format(once);
+        expect(twice).toBe(once);
+    });
+
+    test('mixed fixture: AMPscript, mustaches, and binding coexist correctly', async () => {
+        const input = readFixture('handlebars-mixed.html');
+        const result = await format(input);
+        // AMPscript preserved
+        expect(result).toContain('%%[');
+        expect(result).toContain(']%%');
+        // Block + inline helpers normalized
+        expect(result).toContain('{{#each items as |item index|}}');
+        expect(result).toContain('{{/each}}');
+        expect(result).toContain('{{item.title}}');
+        expect(result).toContain('{{formatDate item.date "yyyy-MM-dd"}}');
+        expect(result).toContain('{{firstName}}');
+        // Binding untouched
+        expect(result).toContain('{!$Contact.Email}');
+    });
+
+    // ── Spacing option ────────────────────────────────────────────────────────
+
+    test('default (handlebarsSpacing false): simple and triple mustaches are tight', async () => {
+        const input = '<p>{{ foo bar }} {{{ raw }}}</p>';
+        const result = await format(input);
+        expect(result).toContain('{{foo bar}}');
+        expect(result).toContain('{{{raw}}}');
+    });
+
+    test('handlebarsSpacing true: pads simple mustaches and triple-stache', async () => {
+        const input = '<p>{{foo bar}} {{{raw}}}</p>';
+        const result = await format(input, { handlebarsSpacing: true });
+        expect(result).toContain('{{ foo bar }}');
+        expect(result).toContain('{{{ raw }}}');
+    });
+
+    test('handlebarsSpacing true: sigil mustaches stay tight (block/partial/unescaped)', async () => {
+        const input = '<div>{{#each items}}{{> part}}{{& unesc}}{{/each}}</div>';
+        const result = await format(input, { handlebarsSpacing: true });
+        expect(result).toContain('{{#each items}}');
+        expect(result).toContain('{{> part}}');
+        expect(result).toContain('{{& unesc}}');
+        expect(result).toContain('{{/each}}');
+    });
+
+    // ── Helper casing option ──────────────────────────────────────────────────
+
+    test('default helper casing is lower-camel for known helpers', async () => {
+        const input = '<p>{{GetContentBlock key="b"}}</p>';
+        const result = await format(input);
+        expect(result).toContain('{{getContentBlock key="b"}}');
+    });
+
+    test('handlebarsHelperCase upper-camel capitalizes known helpers', async () => {
+        const input = '<p>{{getContentBlock key="b"}}</p>';
+        const result = await format(input, { handlebarsHelperCase: 'upper-camel' });
+        expect(result).toContain('{{GetContentBlock key="b"}}');
+    });
+
+    test('handlebarsHelperCase upper uppercases known helpers', async () => {
+        const input = '<p>{{getContentBlock key="b"}}</p>';
+        const result = await format(input, { handlebarsHelperCase: 'upper' });
+        expect(result).toContain('{{GETCONTENTBLOCK key="b"}}');
+    });
+
+    test('handlebarsHelperCase lower lowercases known helpers', async () => {
+        const input = '<p>{{GetContentBlock key="b"}}</p>';
+        const result = await format(input, { handlebarsHelperCase: 'lower' });
+        expect(result).toContain('{{getcontentblock key="b"}}');
+    });
+
+    test('handlebarsHelperCase preserve leaves known helper casing untouched', async () => {
+        const input = '<p>{{GeTcOnTeNtBlOcK key="b"}}</p>';
+        const result = await format(input, { handlebarsHelperCase: 'preserve' });
+        expect(result).toContain('{{GeTcOnTeNtBlOcK key="b"}}');
+    });
+
+    test('unknown paths are preserved in every casing mode', async () => {
+        const input = '<p>{{firstName}} {{item.Title}}</p>';
+        for (const mode of ['upper-camel', 'lower-camel', 'upper', 'lower', 'preserve']) {
+            const result = await format(input, { handlebarsHelperCase: mode });
+            expect(result).toContain('{{firstName}}');
+            expect(result).toContain('{{item.Title}}');
+        }
+    });
+
+    test('recases block open and block close of a known helper', async () => {
+        const input = '<div>{{#EACH items}}x{{/EACH}}</div>';
+        const result = await format(input, { handlebarsHelperCase: 'lower-camel' });
+        expect(result).toContain('{{#each items}}');
+        expect(result).toContain('{{/each}}');
+    });
+
+    test('recases a subexpression head while preserving the outer unknown head', async () => {
+        const input = '<p>{{myField (ISEMPTY x) a b}}</p>';
+        const result = await format(input, { handlebarsHelperCase: 'lower-camel' });
+        // outer head is unknown -> preserved; subexpression head is known -> recased
+        expect(result).toContain('{{myField (isEmpty x) a b}}');
+    });
+
+    test('string literals and casing coexist without literal corruption', async () => {
+        const input = '<p>{{GetContentBlock "My  Key"}}</p>';
+        const result = await format(input, { handlebarsHelperCase: 'lower-camel' });
+        expect(result).toContain('{{getContentBlock "My  Key"}}');
+    });
+
+    // ── .hbs fixture ──────────────────────────────────────────────────────────
+
+    test('formats a standalone .hbs document (helpers recased, paths preserved)', async () => {
+        const input = readFixture('handlebars-page.hbs');
+        const result = await format(input);
+        expect(result).toContain('{{firstName}}');
+        expect(result).toContain('{{#each items as |item index|}}');
+        expect(result).toContain('{{/each}}');
+        expect(result).toContain('{{item.Title}}');
+        expect(result).toContain('{{formatCurrency item.price}}');
+        expect(result).toContain('{{iif (isEmpty discount) "no offer" discount}}');
+        expect(result).toContain('{{{rawBlock}}}');
+    });
+
+    test('.hbs formatting is idempotent', async () => {
+        const input = readFixture('handlebars-page.hbs');
+        const once = await format(input);
+        const twice = await format(once);
+        expect(twice).toBe(once);
+    });
+
+    test('helper casing formatting is idempotent', async () => {
+        const input = '<div>{{#EACH items}}{{GetContentBlock "k"}}{{/EACH}}</div>';
+        const once = await format(input, { handlebarsHelperCase: 'upper-camel' });
+        const twice = await format(once, { handlebarsHelperCase: 'upper-camel' });
+        expect(twice).toBe(once);
+    });
+});
+
 // ── Script tag syntax ────────────────────────────────────────────────────────
 
 describe('script tag syntax', () => {

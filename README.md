@@ -1,6 +1,6 @@
 # prettier-plugin-sfmc
 
-Unified Prettier plugin for **Salesforce Marketing Cloud** — formats **AMPscript** (`.ampscript`, `.amp`, `.html`), registers **SSJS** (`.ssjs`) with Prettier’s JavaScript formatter, and formats **SQL** (`.sql`) via embedded [prettier-plugin-sql](https://www.npmjs.com/package/prettier-plugin-sql).
+Unified Prettier plugin for **Salesforce Marketing Cloud** — formats **AMPscript** (`.ampscript`, `.amp`, `.html`), normalizes **Marketing Cloud Next Handlebars** (`.hbs` and `{{…}}` inside `.html`), registers **SSJS** (`.ssjs`) with Prettier’s JavaScript formatter, and formats **SQL** (`.sql`) via embedded [prettier-plugin-sql](https://www.npmjs.com/package/prettier-plugin-sql).
 
 ## Installation
 
@@ -26,11 +26,11 @@ To use explicitly in `.prettierrc`:
 
 ## Options
 
-All options use the `ampscript` prefix — they control AMPscript formatting behavior.
+AMPscript options use the `ampscript` prefix; Handlebars options use the `handlebars` prefix.
 
 | Option                                                                                        | Type                                                                         | Default         | Description                                    |
 | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | --------------- | ---------------------------------------------- |
-| [`ampscriptSpacing`](docs/options/ampscript-spacing.md)                                       | boolean                                                                      | `true`          | Spacing in inline expressions: `%%= V(@x) =%%` |
+| [`ampscriptSpacing`](docs/options/ampscript-spacing.md)                                       | boolean                                                                      | `true`          | Spacing in inline expressions: `%%= v(@x) =%%` |
 | [`ampscriptEnforceVariableCasing`](docs/options/ampscript-enforce-variable-casing.md)         | boolean                                                                      | `true`          | Normalize variable casing to first occurrence  |
 | [`ampscriptRemoveUnnecessaryBrackets`](docs/options/ampscript-remove-unnecessary-brackets.md) | boolean                                                                      | `true`          | Remove needless parentheses                    |
 | [`ampscriptQuoteStyle`](docs/options/ampscript-quote-style.md)                                | `"single"` \| `"double"`                                                     | `"single"`      | String quote style                             |
@@ -38,6 +38,8 @@ All options use the `ampscript` prefix — they control AMPscript formatting beh
 | [`ampscriptFunctionCase`](docs/options/ampscript-function-case.md)                            | `"upper-camel"` \| `"lower-camel"` \| `"upper"` \| `"lower"` \| `"preserve"` | `"upper-camel"` | Function name casing                           |
 | [`ampscriptBlockLineBreaks`](docs/options/ampscript-block-line-breaks.md)                     | boolean                                                                      | `false`         | Optional line breaks around `%%[ ]%%` when not already at a line boundary |
 | [`ampscriptVarDeclarationStyle`](docs/options/ampscript-var-declaration-style.md)             | `"auto"` \| `"single-line"` \| `"multi-line"`                                | `"multi-line"`  | Var declaration formatting                     |
+| [`handlebarsSpacing`](docs/options/handlebars-spacing.md)                                     | boolean                                                                      | `false`         | Pad simple/triple `{{…}}`; sigil mustaches stay tight |
+| [`handlebarsHelperCase`](docs/options/handlebars-helper-case.md)                              | `"upper-camel"` \| `"lower-camel"` \| `"upper"` \| `"lower"` \| `"preserve"` | `"lower-camel"` | Casing of known MCN Handlebars helper names    |
 
 ### Example `.prettierrc`
 
@@ -56,7 +58,8 @@ All options use the `ampscript` prefix — they control AMPscript formatting beh
 | ------------ | ------------------- | ------------------ | ------------------------------------------------------------------------------- |
 | `.ampscript` | `ampscript`         | `ampscript-parse`  | Full AMPscript formatting                                                       |
 | `.amp`       | `ampscript`         | `ampscript-parse`  | Full AMPscript formatting                                                       |
-| `.html`      | `sfmc`              | `ampscript-parse`  | AMPscript formatted; HTML and `<script runat="server">` delegated to Prettier's built-in HTML formatter |
+| `.html`      | `sfmc`              | `ampscript-parse`  | AMPscript formatted; HTML and `<script runat="server">` delegated to Prettier; MCN `{{…}}` Handlebars normalized (see [Handlebars](#handlebars-marketing-cloud-next)) |
+| `.hbs`       | `handlebars`        | `ampscript-parse`  | Marketing Cloud Next Handlebars normalized (see [Handlebars](#handlebars-marketing-cloud-next)); embedded HTML delegated to Prettier |
 | `.ssjs`      | `ssjs`              | `babel` (built-in) | Standard JavaScript formatting                                                  |
 | `.sql`       | —                   | `sql`              | SQL via composed `prettier-plugin-sql`                                          |
 
@@ -106,8 +109,28 @@ When formatting `.html` files, the plugin:
 1. Parses AMPscript regions (`%%[ ]%%`, `%%= =%%`, `<script language="ampscript">`)
 2. Delegates HTML content to Prettier's built-in HTML formatter
 3. Prettier's HTML formatter handles `<script runat="server">` SSJS blocks as JavaScript
+4. Normalizes Marketing Cloud Next `{{…}}` Handlebars expressions (see [Handlebars](#handlebars-marketing-cloud-next))
 
 This means a single plugin handles all SFMC formatting in HTML email templates.
+
+## Handlebars (Marketing Cloud Next)
+
+Marketing Cloud Next templates use [Handlebars](https://developer.salesforce.com/docs/marketing/handlebars-for-marketing-cloud-next) `{{…}}` expressions. These can co-exist with classic AMPscript and HTML in a single `.html` file, or stand alone in a dedicated `.hbs` file. The plugin normalizes each Handlebars expression it finds in both file types.
+
+Normalization is driven by two options:
+
+- [`handlebarsSpacing`](docs/options/handlebars-spacing.md) (default `false`) — internal whitespace runs always collapse to a single space (`{{ formatCurrency   x }}` becomes `{{formatCurrency x}}`). When `true`, simple mustaches and triple-stache also get one space of padding (`{{ formatCurrency x }}`, `{{{ raw }}}`); sigil mustaches (`{{#each}}`, `{{/each}}`, `{{^x}}`, `{{>p}}`, `{{&x}}`) always stay tight.
+- [`handlebarsHelperCase`](docs/options/handlebars-helper-case.md) (default `"lower-camel"`) — recases **known** MCN Handlebars helper names (from the [`handlebars-data`](https://www.npmjs.com/package/handlebars-data) catalog) at the mustache head, block open/close, and subexpression heads. Unknown paths such as `{{firstName}}` or `{{item.Title}}` are always preserved.
+
+Everything else is left exactly as written:
+
+- **String literals are preserved byte-for-byte**, including their whitespace and quote character: `{{concat "a   b"}}` and `{{concat 'x   y'}}` are unchanged.
+- **Handlebars comments are preserved verbatim**: `{{! … }}` and `{{!-- … --}}` keep their inner spacing.
+- **Malformed or unbalanced expressions are left untouched** (for example a `{{#if}}` with no matching `{{/if}}` in the fragment) and never cause a formatting error.
+- **`{!$…}` merge-field bindings are never touched** — these are SFMC personalization bindings, not Handlebars syntax, and pass through byte-for-byte.
+- Formatting is **idempotent**: running it a second time produces identical output.
+
+AMPscript delimiters (`%%[`, `]%%`, `%%=`, `=%%`) and their contents are unaffected.
 
 ## Ignoring Code
 
