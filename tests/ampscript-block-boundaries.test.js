@@ -18,7 +18,7 @@ describe('needsLeadingBlockBreak', () => {
     });
 
     test('false after BOM only', () => {
-        expect(needsLeadingBlockBreak('\uFEFF%%[', 1)).toBe(false);
+        expect(needsLeadingBlockBreak('\u{FEFF}%%[', 1)).toBe(false);
     });
 
     test('false after newline', () => {

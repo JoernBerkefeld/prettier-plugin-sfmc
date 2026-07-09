@@ -1,4 +1,4 @@
-# testFixture — prettier-plugin-sfmc
+# test-fixture — prettier-plugin-sfmc
 
 Ad-hoc harness to try the **local** plugin source (including the Marketing
 Cloud Next `{{…}}` Handlebars normalization — whitespace, helper casing, and
@@ -31,7 +31,7 @@ npm ci --no-workspaces
 
 ## Run it
 
-From `prettier-plugin-sfmc/testFixture/`:
+From `prettier-plugin-sfmc/test-fixture/`:
 
 ```powershell
 # Format a bundled sample and print the result (source file unchanged)
@@ -91,7 +91,7 @@ so it re-reads the plugin.
 
 The **Run and Debug** dropdown also has (breakpoints work in `src/**/*.js`):
 
-- **format all testFixtures** — batch-format `../tests/fixtures/` (print-only,
+- **format all test-fixtures** — batch-format `../tests/fixtures/` (print-only,
   idempotency report)
 - **run test suite** — run the Jest suite under the debugger
 
@@ -148,7 +148,7 @@ You can also exercise it through the actual `prettier` binary with `--plugin`:
 
 ```powershell
 cd c:\EDF\Git\sfmc-amscript-language\prettier-plugin-sfmc
-npx prettier --plugin ./src/index.js testFixture/sample.html
+npx prettier --plugin ./src/index.js test-fixture/sample.html
 ```
 
 ## Notes

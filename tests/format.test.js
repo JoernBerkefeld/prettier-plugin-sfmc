@@ -216,7 +216,7 @@ describe('indentation', () => {
         const setLine = lines.find((l) => l.includes('set @x'));
         expect(setLine).toBeDefined();
         if (setLine) {
-            expect(setLine.startsWith('    ')).toBe(true);
+            expect(setLine.startsWith(' '.repeat(4))).toBe(true);
         }
     });
 
@@ -375,9 +375,9 @@ describe('ampscriptBlockLineBreaks', () => {
     });
 
     test('when enabled, does not add leading break after UTF-8 BOM only', async () => {
-        const input = '\uFEFF%%[\n  set @x = 1\n]%%';
+        const input = '\u{FEFF}%%[\n  set @x = 1\n]%%';
         const result = await format(input, { ampscriptBlockLineBreaks: true });
-        expect(result.startsWith('\uFEFF%%[')).toBe(true);
+        expect(result.startsWith('\u{FEFF}%%[')).toBe(true);
         const second = await format(result, { ampscriptBlockLineBreaks: true });
         expect(second).toBe(result);
     });

@@ -105,7 +105,7 @@ export default [
     },
     {
         // Ad-hoc CLI harness — console output and process.exit are intentional.
-        files: ['testFixture/**/*.{js,mjs,cjs}'],
+        files: ['test-fixture/**/*.{js,mjs,cjs}'],
         rules: {
             'unicorn/import-style': 'off',
             'unicorn/no-process-exit': 'off',

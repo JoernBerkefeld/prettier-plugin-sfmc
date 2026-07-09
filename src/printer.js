@@ -36,10 +36,14 @@ function collectVariableMap(node) {
         }
 
         if (Array.isArray(n.children)) {
-            n.children.forEach((child) => walk(child));
+            for (const child of n.children) {
+                walk(child);
+            }
         }
         if (Array.isArray(n.statements)) {
-            n.statements.forEach((statement) => walk(statement));
+            for (const statement of n.statements) {
+                walk(statement);
+            }
         }
         if (n.target) {
             walk(n.target);
@@ -63,13 +67,19 @@ function collectVariableMap(node) {
             walk(n.argument);
         }
         if (Array.isArray(n.arguments)) {
-            n.arguments.forEach((argument) => walk(argument));
+            for (const argument of n.arguments) {
+                walk(argument);
+            }
         }
         if (Array.isArray(n.variables)) {
-            n.variables.forEach((variable) => walk(variable));
+            for (const variable of n.variables) {
+                walk(variable);
+            }
         }
         if (Array.isArray(n.consequent)) {
-            n.consequent.forEach((consequent) => walk(consequent));
+            for (const consequent of n.consequent) {
+                walk(consequent);
+            }
         }
         if (Array.isArray(n.alternates)) {
             for (const alt of n.alternates) {
@@ -77,12 +87,16 @@ function collectVariableMap(node) {
                     walk(alt.condition);
                 }
                 if (Array.isArray(alt.body)) {
-                    alt.body.forEach((bodyNode) => walk(bodyNode));
+                    for (const bodyNode of alt.body) {
+                        walk(bodyNode);
+                    }
                 }
             }
         }
         if (Array.isArray(n.body)) {
-            n.body.forEach((bodyNode) => walk(bodyNode));
+            for (const bodyNode of n.body) {
+                walk(bodyNode);
+            }
         }
         if (n.counter) {
             walk(n.counter);
@@ -109,12 +123,8 @@ function isNeedlessParenExpression(node) {
         return false;
     }
     const inner = node.expression;
-    return (
-        inner.type === 'Variable' ||
-        inner.type === 'StringLiteral' ||
-        inner.type === 'NumberLiteral' ||
-        inner.type === 'BooleanLiteral' ||
-        inner.type === 'Identifier'
+    return ['Variable', 'StringLiteral', 'NumberLiteral', 'BooleanLiteral', 'Identifier'].includes(
+        inner.type,
     );
 }
 
@@ -207,7 +217,7 @@ function printAmpscriptNode(path, options, print) {
     const variableStyle = options.ampscriptVarDeclarationStyle || 'multi-line';
     const keywordCase = options.ampscriptKeywordCase || 'lower';
     const functionCase = options.ampscriptFunctionCase || 'upper-camel';
-    const blockLineBreaks = options.ampscriptBlockLineBreaks === true;
+    const isBlockLineBreaks = options.ampscriptBlockLineBreaks === true;
 
     function resolveVariable(variableName) {
         if (!enforceCasing) {
@@ -277,20 +287,21 @@ function printAmpscriptNode(path, options, print) {
         }
 
         case 'Block': {
-            const stmts = path.map(
+            const statements = path.map(
                 (statementPath, index) => print(statementPath, index),
                 'statements',
             );
-            const stmtNodes = node.statements;
+            const statementNodes = node.statements;
             const body = [];
-            for (const [index, stmt] of stmts.entries()) {
+            for (const [index, statement] of statements.entries()) {
                 if (index > 0) {
                     body.push(hardline);
-                    if (stmtNodes[index] && stmtNodes[index].blankLineBefore) {
+                    const statementNode = statementNodes[index];
+                    if (statementNode && statementNode.blankLineBefore) {
                         body.push(hardline);
                     }
                 }
-                body.push(stmt);
+                body.push(statement);
             }
             const isScriptTag = node.syntax === 'script-tag';
             const blockOpen = isScriptTag ? '<script runat="server" language="ampscript">' : '%%[';
@@ -301,7 +312,7 @@ function printAmpscriptNode(path, options, print) {
                 hardline,
                 blockClose,
             ]);
-            if (blockLineBreaks) {
+            if (isBlockLineBreaks) {
                 const originalText = options.originalText;
                 const parts = [];
                 if (needsLeadingBlockBreak(originalText, node.start)) {
@@ -321,11 +332,11 @@ function printAmpscriptNode(path, options, print) {
         }
 
         case 'InlineExpression': {
-            const expr = print('expression');
+            const expression = print('expression');
             if (enforceSpacing) {
-                return ['%%= ', expr, ' =%%'];
+                return ['%%= ', expression, ' =%%'];
             }
-            return ['%%=', expr, '=%%'];
+            return ['%%=', expression, '=%%'];
         }
 
         case 'Comment': {
@@ -373,18 +384,11 @@ function printAmpscriptNode(path, options, print) {
                 group([kw('if', okw.if), ' ', print('condition'), ' ', kw('then', okw.then)]),
             );
             if (node.consequent.length > 0) {
-                parts.push(
-                    indent([
-                        hardline,
-                        join(
-                            hardline,
-                            path.map(
-                                (consequentPath, index) => print(consequentPath, index),
-                                'consequent',
-                            ),
-                        ),
-                    ]),
+                const consequentDocuments = path.map(
+                    (consequentPath, index) => print(consequentPath, index),
+                    'consequent',
                 );
+                parts.push(indent([hardline, join(hardline, consequentDocuments)]));
             }
             const altDocuments = path.map(
                 (alternatePath, index) => print(alternatePath, index),
@@ -415,15 +419,8 @@ function printAmpscriptNode(path, options, print) {
                 ]),
             );
             if (node.body.length > 0) {
-                parts.push(
-                    indent([
-                        hardline,
-                        join(
-                            hardline,
-                            path.map((bodyPath, index) => print(bodyPath, index), 'body'),
-                        ),
-                    ]),
-                );
+                const bodyDocuments = path.map((bodyPath, index) => print(bodyPath, index), 'body');
+                parts.push(indent([hardline, join(hardline, bodyDocuments)]));
             }
             return parts;
         }
@@ -433,15 +430,8 @@ function printAmpscriptNode(path, options, print) {
             const parts = [];
             parts.push([hardline, kw('else', akw.else)]);
             if (node.body.length > 0) {
-                parts.push(
-                    indent([
-                        hardline,
-                        join(
-                            hardline,
-                            path.map((bodyPath, index) => print(bodyPath, index), 'body'),
-                        ),
-                    ]),
-                );
+                const bodyDocuments = path.map((bodyPath, index) => print(bodyPath, index), 'body');
+                parts.push(indent([hardline, join(hardline, bodyDocuments)]));
             }
             return parts;
         }
@@ -467,15 +457,8 @@ function printAmpscriptNode(path, options, print) {
                 kw('do', okw.do),
             ]);
             if (node.body.length > 0) {
-                parts.push(
-                    indent([
-                        hardline,
-                        join(
-                            hardline,
-                            path.map((bodyPath, index) => print(bodyPath, index), 'body'),
-                        ),
-                    ]),
-                );
+                const bodyDocuments = path.map((bodyPath, index) => print(bodyPath, index), 'body');
+                parts.push(indent([hardline, join(hardline, bodyDocuments)]));
             }
             // Only emit next when the parser saw it in this block (cross-block
             // FOR/NEXT spans multiple %%[ ]%% segments; missing next is intentional).

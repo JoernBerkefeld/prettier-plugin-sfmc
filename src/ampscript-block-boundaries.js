@@ -6,7 +6,7 @@
  * @param {string} ch
  */
 function isHorizontalSpaceOrBom(ch) {
-    return ch === ' ' || ch === '\t' || ch === '\uFEFF';
+    return [' ', '\t', '\u{FEFF}'].includes(ch);
 }
 
 /**

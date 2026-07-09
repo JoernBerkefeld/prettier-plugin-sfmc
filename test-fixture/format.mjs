@@ -6,7 +6,7 @@
  * formatted output to stdout and also runs an idempotency check (format twice,
  * compare).
  *
- * Usage (from prettier-plugin-sfmc/testFixture/):
+ * Usage (from prettier-plugin-sfmc/test-fixture/):
  *   node format.mjs sample.html            # format and print
  *   node format.mjs sample.html --write    # overwrite the file in place
  *   node format.mjs sample.hbs             # standalone Handlebars file
@@ -42,18 +42,20 @@ const target = arguments_.find((a) => !a.startsWith('--'));
  */
 const extraOptions = {};
 for (let index = 0; index < arguments_.length; index++) {
-    if (arguments_[index] === '--opt' && arguments_[index + 1]) {
-        const [key, ...rest] = arguments_[index + 1].split('=');
-        const raw = rest.join('=');
-        let value = raw;
-        if (raw === 'true') {
-            value = true;
-        } else if (raw === 'false') {
-            value = false;
-        }
-        extraOptions[key] = value;
-        index++;
+    if (arguments_[index] !== '--opt' || arguments_[index + 1] === undefined) {
+        continue;
     }
+
+    const [key, ...rest] = arguments_[index + 1].split('=');
+    const raw = rest.join('=');
+    let value = raw;
+    if (raw === 'true') {
+        value = true;
+    } else if (raw === 'false') {
+        value = false;
+    }
+    extraOptions[key] = value;
+    index++;
 }
 
 if (!target && !useFixtures) {
@@ -92,8 +94,8 @@ async function formatFile(filepath, printOutput) {
     const formatOptions = { parser, plugins: [plugin], ...extraOptions };
     const formatted = await prettier.format(source, formatOptions);
     const formattedTwice = await prettier.format(formatted, formatOptions);
-    const idempotent = formatted === formattedTwice;
-    const changed = source !== formatted;
+    const isIdempotent = formatted === formattedTwice;
+    const isChanged = source !== formatted;
 
     if (write) {
         writeFileSync(filepath, formatted, 'utf8');
@@ -102,7 +104,7 @@ async function formatFile(filepath, printOutput) {
         process.stdout.write(formatted);
     }
 
-    return { ok: true, idempotent, changed, parser };
+    return { ok: true, idempotent: isIdempotent, changed: isChanged, parser };
 }
 
 /** Absolute path of the requested target (file or directory). */
@@ -113,7 +115,7 @@ if (isDirectory) {
     // Batch mode: format every supported file in the directory (print-only unless --write).
     const entries = readdirSync(targetPath)
         .filter((name) => parserByExtension[extname(name).toLowerCase()])
-        .toSorted();
+        .toSorted((a, b) => a.localeCompare(b));
 
     console.error(`Formatting ${entries.length} file(s) in ${targetPath}`);
     if (Object.keys(extraOptions).length > 0) {
@@ -121,12 +123,12 @@ if (isDirectory) {
     }
     console.error('─'.repeat(60));
 
-    let allIdempotent = true;
+    let isAllIdempotent = true;
     for (const name of entries) {
         const filepath = join(targetPath, name);
         // In batch mode do not dump every file to stdout — keep the summary readable.
         const { idempotent, changed, parser } = await formatFile(filepath, false);
-        allIdempotent &&= idempotent;
+        isAllIdempotent &&= idempotent;
         const flags = [
             changed ? 'changed' : 'unchanged',
             idempotent ? 'idempotent' : 'NOT IDEMPOTENT'
@@ -135,8 +137,8 @@ if (isDirectory) {
     }
 
     console.error('─'.repeat(60));
-    console.error(allIdempotent ? 'All files idempotent.' : 'SOME FILES ARE NOT IDEMPOTENT.');
-    if (!allIdempotent) {
+    console.error(isAllIdempotent ? 'All files idempotent.' : 'SOME FILES ARE NOT IDEMPOTENT.');
+    if (!isAllIdempotent) {
         process.exitCode = 2;
     }
 } else {

@@ -37,7 +37,7 @@ function mergeSqlOptionsWithSfmcDefaults(sqlOptions) {
         dataTypeCase: 'preserve',
     };
     for (const [key, defaultValue] of Object.entries(defaults)) {
-        if (merged[key]) {
+        if (Object.hasOwn(merged, key)) {
             merged[key].default = defaultValue;
         }
     }
@@ -134,7 +134,7 @@ function normalizeMustacheInner(inner, options = {}) {
             collapsed += ch;
             continue;
         }
-        if (ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r' || ch === '\f' || ch === '\v') {
+        if ([' ', '\t', '\n', '\r', '\f', '\v'].includes(ch)) {
             if (collapsed.length > 0 && collapsed.at(-1) !== ' ') {
                 collapsed += ' ';
             }
@@ -154,8 +154,8 @@ function normalizeMustacheInner(inner, options = {}) {
     // literals so `(` / heads inside quotes are ignored.
     let result = '';
     quote = undefined;
-    let expectHead = true;
-    let leadingSigilConsumed = false;
+    let isExpectHead = true;
+    let isLeadingSigilConsumed = false;
     let index = 0;
     const n = collapsed.length;
     while (index < n) {
@@ -171,20 +171,25 @@ function normalizeMustacheInner(inner, options = {}) {
         if (ch === '"' || ch === "'") {
             quote = ch;
             result += ch;
-            expectHead = false;
+            isExpectHead = false;
             index++;
             continue;
         }
         // At the outermost head position, skip a single leading sigil.
-        if (expectHead && !leadingSigilConsumed && result.length === 0 && MUSTACHE_SIGILS.has(ch)) {
+        if (
+            isExpectHead &&
+            !isLeadingSigilConsumed &&
+            result.length === 0 &&
+            MUSTACHE_SIGILS.has(ch)
+        ) {
             result += ch;
-            leadingSigilConsumed = true;
+            isLeadingSigilConsumed = true;
             index++;
             continue;
         }
         if (ch === '(') {
             result += ch;
-            expectHead = true;
+            isExpectHead = true;
             index++;
             continue;
         }
@@ -193,7 +198,7 @@ function normalizeMustacheInner(inner, options = {}) {
             index++;
             continue;
         }
-        if (expectHead) {
+        if (isExpectHead) {
             // Read the head token up to the next whitespace, `(`, `)`, or quote.
             let index_ = index;
             while (index_ < n && !/[\s()'"]/.test(collapsed[index_])) {
@@ -201,7 +206,7 @@ function normalizeMustacheInner(inner, options = {}) {
             }
             const token = collapsed.slice(index, index_);
             result += isBareName(token) ? applyHelperCase(token, helperCase) : token;
-            expectHead = false;
+            isExpectHead = false;
             index = index_;
             continue;
         }
@@ -217,6 +222,36 @@ function normalizeMustacheInner(inner, options = {}) {
  * literals and reflow mustaches). Mirrors the `AMPSCRIPTPH…END` scheme.
  */
 const HANDLEBARS_PH = 'HANDLEBARSPH';
+
+/**
+ * Scan forward from `start` for a Handlebars closing delimiter, ignoring any
+ * occurrence that sits inside a single- or double-quoted string literal.
+ *
+ * @param {string} text Text being scanned.
+ * @param {number} start Index to begin scanning at (just past the opener).
+ * @param {string} closeDelim Closing delimiter to look for (`}}` or `}}}`).
+ * @param {number} end Exclusive upper bound for scanning (usually `text.length`).
+ * @returns {number} Index of the closing delimiter, or `-1` when not found.
+ */
+function findClosingDelimiter(text, start, closeDelim, end) {
+    /** @type {string|undefined} */
+    let quote;
+    let index = start;
+    while (index < end) {
+        const ch = text[index];
+        if (quote) {
+            if (ch === quote) {
+                quote = undefined;
+            }
+        } else if (ch === '"' || ch === "'") {
+            quote = ch;
+        } else if (text.startsWith(closeDelim, index)) {
+            return index;
+        }
+        index++;
+    }
+    return -1;
+}
 
 /**
  * Extract every well-formed MCN Handlebars `{{…}}` region from a string, replacing
@@ -242,7 +277,7 @@ const HANDLEBARS_PH = 'HANDLEBARSPH';
  * and the ordered list of normalized mustache replacements.
  */
 function extractHandlebarsRegions(text, options = {}) {
-    const spacing = options.spacing === true;
+    const isSpacing = options.spacing === true;
     const helperCase = options.helperCase || 'lower-camel';
     /** @type {string[]} */
     const tokens = [];
@@ -283,30 +318,7 @@ function extractHandlebarsRegions(text, options = {}) {
 
         // Scan for the closing delimiter, ignoring `}}` inside string literals.
         const closeDelim = isTriple ? '}}}' : '}}';
-        /** @type {string|undefined} */
-        let quote;
-        let index_ = open + openLength;
-        let foundClose = -1;
-        while (index_ < n) {
-            const ch = text[index_];
-            if (quote) {
-                if (ch === quote) {
-                    quote = undefined;
-                }
-                index_++;
-                continue;
-            }
-            if (ch === '"' || ch === "'") {
-                quote = ch;
-                index_++;
-                continue;
-            }
-            if (text.startsWith(closeDelim, index_)) {
-                foundClose = index_;
-                break;
-            }
-            index_++;
-        }
+        const foundClose = findClosingDelimiter(text, open + openLength, closeDelim, n);
 
         if (foundClose === -1) {
             // Unbalanced — leave the remainder exactly as-is for the HTML parser.
@@ -321,7 +333,7 @@ function extractHandlebarsRegions(text, options = {}) {
         // `spacing` is enabled; sigil mustaches (`{{#…}}`, `{{/…}}`, `{{^…}}`,
         // `{{>…}}`, `{{&…}}`) always stay tight.
         const hasSigil = MUSTACHE_SIGILS.has(normalized[0]);
-        const pad = spacing && !hasSigil && normalized.length > 0 ? ' ' : '';
+        const pad = isSpacing && !hasSigil && normalized.length > 0 ? ' ' : '';
         tokens.push(`${opener}${pad}${normalized}${pad}${closeDelim}`);
         out += `${HANDLEBARS_PH}${tokens.length - 1}END`;
         index = foundClose + closeDelim.length;
@@ -481,9 +493,9 @@ export const printers = {
                             parts.push(d.slice(last, m.index));
                         }
                         if (m[1] === undefined) {
-                            parts.push(handlebarsTokens[Number.parseInt(m[2], 10)]);
+                            parts.push(handlebarsTokens[Number(m[2])]);
                         } else {
-                            parts.push(print(['children', Number.parseInt(m[1], 10)]));
+                            parts.push(print(['children', Number(m[1])]));
                         }
                         last = m.index + m[0].length;
                     }
