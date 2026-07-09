@@ -12,10 +12,10 @@ import * as plugin from '../src/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const fixturesDir = join(__dirname, 'fixtures');
+const fixturesDirectory = join(__dirname, 'fixtures');
 
 function readFixture(name) {
-    return readFileSync(join(fixturesDir, name), 'utf8');
+    return readFileSync(join(fixturesDirectory, name), 'utf8');
 }
 
 async function format(code, options = {}) {

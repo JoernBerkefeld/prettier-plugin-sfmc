@@ -21,16 +21,16 @@ function isIndexAtLineStart(text, index) {
         return true;
     }
 
-    let i = index - 1;
-    while (i >= 0 && isHorizontalSpaceOrBom(text[i])) {
-        i--;
+    let index_ = index - 1;
+    while (index_ >= 0 && isHorizontalSpaceOrBom(text[index_])) {
+        index_--;
     }
 
-    if (i < 0) {
+    if (index_ < 0) {
         return true;
     }
 
-    const ch = text[i];
+    const ch = text[index_];
     return ch === '\n' || ch === '\r';
 }
 
@@ -42,18 +42,18 @@ function isIndexAtLineStart(text, index) {
  * @param {number} index
  */
 function isIndexAtLineEnd(text, index) {
-    const len = text.length;
-    let j = index;
+    const length = text.length;
+    let index_ = index;
 
-    while (j < len && isHorizontalSpaceOrBom(text[j])) {
-        j++;
+    while (index_ < length && isHorizontalSpaceOrBom(text[index_])) {
+        index_++;
     }
 
-    if (j >= len) {
+    if (index_ >= length) {
         return true;
     }
 
-    const ch = text[j];
+    const ch = text[index_];
     return ch === '\n' || ch === '\r';
 }
 
@@ -65,7 +65,7 @@ function isIndexAtLineEnd(text, index) {
  * @param {number | undefined} blockStart
  */
 export function needsLeadingBlockBreak(originalText, blockStart) {
-    if (typeof originalText !== 'string' || blockStart == null || blockStart < 0) {
+    if (typeof originalText !== 'string' || blockStart == undefined || blockStart < 0) {
         return false;
     }
 
@@ -80,7 +80,7 @@ export function needsLeadingBlockBreak(originalText, blockStart) {
  * @param {number | undefined} blockEnd
  */
 export function needsTrailingBlockBreak(originalText, blockEnd) {
-    if (typeof originalText !== 'string' || blockEnd == null || blockEnd < 0) {
+    if (typeof originalText !== 'string' || blockEnd == undefined || blockEnd < 0) {
         return false;
     }
 

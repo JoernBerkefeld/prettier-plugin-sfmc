@@ -28,25 +28,31 @@ import { fileURLToPath } from 'node:url';
 import * as prettier from 'prettier';
 import * as plugin from '../src/index.js';
 
-const scriptDir = dirname(fileURLToPath(import.meta.url));
-const fixturesDir = resolve(scriptDir, '..', 'tests', 'fixtures');
+const scriptDirectory = dirname(fileURLToPath(import.meta.url));
+const fixturesDirectory = resolve(scriptDirectory, '..', 'tests', 'fixtures');
 
-const args = process.argv.slice(2);
-const write = args.includes('--write');
-const useFixtures = args.includes('--fixtures');
-const target = args.find((a) => !a.startsWith('--'));
+const arguments_ = process.argv.slice(2);
+const write = arguments_.includes('--write');
+const useFixtures = arguments_.includes('--fixtures');
+const target = arguments_.find((a) => !a.startsWith('--'));
 
 /**
  * Collect repeated `--opt key=value` pairs into a plugin options object.
  * Values `true` / `false` are coerced to booleans; everything else stays a string.
  */
 const extraOptions = {};
-for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--opt' && args[i + 1]) {
-        const [key, ...rest] = args[i + 1].split('=');
+for (let index = 0; index < arguments_.length; index++) {
+    if (arguments_[index] === '--opt' && arguments_[index + 1]) {
+        const [key, ...rest] = arguments_[index + 1].split('=');
         const raw = rest.join('=');
-        extraOptions[key] = raw === 'true' ? true : raw === 'false' ? false : raw;
-        i++;
+        let value = raw;
+        if (raw === 'true') {
+            value = true;
+        } else if (raw === 'false') {
+            value = false;
+        }
+        extraOptions[key] = value;
+        index++;
     }
 }
 
@@ -57,7 +63,7 @@ if (!target && !useFixtures) {
 }
 
 /** Map file extension → the plugin parser that handles it. */
-const parserByExt = {
+const parserByExtension = {
     '.html': 'ampscript-parse',
     '.hbs': 'ampscript-parse',
     '.amp': 'ampscript-parse',
@@ -75,10 +81,10 @@ const parserByExt = {
  * @returns {Promise.<{ ok: boolean, idempotent: boolean, changed: boolean }>} Result.
  */
 async function formatFile(filepath, printOutput) {
-    const ext = extname(filepath).toLowerCase();
-    const parser = parserByExt[ext];
+    const extension = extname(filepath).toLowerCase();
+    const parser = parserByExtension[extension];
     if (!parser) {
-        console.error(`skip (no parser for "${ext}"): ${filepath}`);
+        console.error(`skip (no parser for "${extension}"): ${filepath}`);
         return { ok: false, idempotent: true, changed: false };
     }
 
@@ -100,13 +106,13 @@ async function formatFile(filepath, printOutput) {
 }
 
 /** Absolute path of the requested target (file or directory). */
-const targetPath = useFixtures ? fixturesDir : resolve(process.cwd(), target);
-const isDir = statSync(targetPath).isDirectory();
+const targetPath = useFixtures ? fixturesDirectory : resolve(process.cwd(), target);
+const isDirectory = statSync(targetPath).isDirectory();
 
-if (isDir) {
+if (isDirectory) {
     // Batch mode: format every supported file in the directory (print-only unless --write).
     const entries = readdirSync(targetPath)
-        .filter((name) => parserByExt[extname(name).toLowerCase()])
+        .filter((name) => parserByExtension[extname(name).toLowerCase()])
         .toSorted();
 
     console.error(`Formatting ${entries.length} file(s) in ${targetPath}`);
