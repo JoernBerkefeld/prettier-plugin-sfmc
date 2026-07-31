@@ -123,9 +123,14 @@ function isNeedlessParenExpression(node) {
         return false;
     }
     const inner = node.expression;
-    return ['Variable', 'StringLiteral', 'NumberLiteral', 'BooleanLiteral', 'Identifier'].includes(
-        inner.type,
-    );
+    return [
+        'Variable',
+        'StringLiteral',
+        'NumberLiteral',
+        'BooleanLiteral',
+        'Identifier',
+        'PersonalizationString',
+    ].includes(inner.type);
 }
 
 const OPERATOR_PRECEDENCE = {
@@ -493,6 +498,13 @@ function printAmpscriptNode(path, options, print) {
 
         case 'Identifier': {
             return node.value;
+        }
+
+        case 'PersonalizationString': {
+            // Bracketed personalization strings are atomic: emit exactly as
+            // `[value]` with no inserted spaces so `[_subscriberkey]` and
+            // `[First Name]` round-trip unchanged.
+            return `[${node.value}]`;
         }
 
         case 'StringLiteral': {

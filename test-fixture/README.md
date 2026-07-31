@@ -8,12 +8,12 @@ optional padding) without building or publishing anything. It loads
 The Jest fixtures live in `../tests/fixtures/`; this folder holds the manual
 runner (`format.mjs`) and editable sample files for each language:
 
-| Sample file | Demonstrates |
-|---|---|
-| `sample.html` | Mixed HTML + AMPscript + Marketing Cloud Next Handlebars |
-| `sample.hbs` | Standalone Handlebars (`.hbs`) |
-| `sample.amp` | AMPscript-only (blocks + inline `%%= … =%%`) |
-| `sample.ssjs` | SSJS (routed through Prettier's `babel` parser) |
+| Sample file         | Demonstrates                                                                            |
+| ------------------- | --------------------------------------------------------------------------------------- |
+| `sample.html`       | Mixed HTML + AMPscript + Marketing Cloud Next Handlebars                                |
+| `sample.hbs`        | Standalone Handlebars (`.hbs`)                                                          |
+| `sample.amp`        | AMPscript-only (blocks + inline `%%= … =%%`)                                            |
+| `sample.ssjs`       | SSJS (routed through Prettier's `babel` parser)                                         |
 | `sample-mixed.html` | All three: AMPscript, SSJS (`<script runat="server">`), and Handlebars in one HTML file |
 
 All sample files start out **intentionally messy** so you can watch the plugin
@@ -102,9 +102,9 @@ Supported extensions (parser auto-selected): `.html`, `.hbs`, `.amp`,
 
 ### Handlebars options
 
-| Flag | Effect |
-|---|---|
-| `--opt handlebarsSpacing=true` | Pad simple/triple mustaches (`{{ foo }}`); sigil mustaches stay tight |
+| Flag                                     | Effect                                                                                              |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `--opt handlebarsSpacing=true`           | Pad simple/triple mustaches (`{{ foo }}`); sigil mustaches stay tight                               |
 | `--opt handlebarsHelperCase=upper-camel` | Recase known helpers (`FormatCurrency`); also `lower-camel` (default), `upper`, `lower`, `preserve` |
 
 Each run also does an **idempotency check** (formats the output a second time

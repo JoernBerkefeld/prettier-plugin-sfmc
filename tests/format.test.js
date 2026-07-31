@@ -663,7 +663,7 @@ describe('Handlebars (MCN)', () => {
         expect(result).toContain('{{/each}}');
         expect(result).toContain('{{item.Title}}');
         expect(result).toContain('{{formatCurrency item.price}}');
-        expect(result).toContain('{{iif (isEmpty discount) "no offer" discount}}');
+        expect(result).toContain("{{iif (isEmpty discount) 'no offer' discount}}");
         expect(result).toContain('{{{rawBlock}}}');
     });
 
@@ -792,6 +792,50 @@ describe('many-params fixture', () => {
         const concatLine = lines.find((l) => l.includes('Concat('));
         expect(concatLine).toBeDefined();
         expect(concatLine).toContain('Concat(@a, @b, @c)');
+    });
+});
+
+describe('bracketed personalization strings', () => {
+    test('keeps [_subscriberkey] intact in a SET assignment', async () => {
+        const result = await format('%%[ SET @x = [_subscriberkey] ]%%');
+        expect(result).toContain('set @x = [_subscriberkey]');
+        expect(result).not.toContain('[ _subscriberkey ]');
+        expect(result).not.toContain('[_subscriberkey ]');
+        expect(result).not.toContain('[ _subscriberkey]');
+    });
+
+    test('keeps [First Name] intact including the internal space', async () => {
+        const result = await format('%%[ SET @x = [First Name] ]%%');
+        expect(result).toContain('set @x = [First Name]');
+        expect(result).not.toContain('[First Name ]');
+        expect(result).not.toContain('[ First Name]');
+    });
+
+    test('keeps a bracketed personalization string in a function argument', async () => {
+        const result = await format('%%[ SET @x = Uppercase([First Name]) ]%%');
+        expect(result).toContain('Uppercase([First Name])');
+    });
+
+    test('keeps a bracketed personalization string in an IF condition', async () => {
+        const result = await format('%%[ IF [_subscriberkey] == "abc" THEN SET @x = 1 ENDIF ]%%');
+        expect(result).toContain("if [_subscriberkey] == 'abc' then");
+    });
+
+    test('keeps a bracketed personalization string in an inline expression', async () => {
+        const result = await format('%%=[First Name]=%%');
+        expect(result).toContain('[First Name]');
+        expect(result).not.toContain('[ First Name ]');
+        expect(result).not.toContain('[First Name ]');
+        expect(result).not.toContain('[ First Name]');
+    });
+
+    test('is idempotent across a second pass', async () => {
+        const input = '%%[ SET @x = [First Name]\nSET @y = [_subscriberkey] ]%%';
+        const first = await format(input);
+        const second = await format(first);
+        expect(second).toBe(first);
+        expect(first).toContain('[First Name]');
+        expect(first).toContain('[_subscriberkey]');
     });
 });
 

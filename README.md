@@ -28,18 +28,18 @@ To use explicitly in `.prettierrc`:
 
 AMPscript options use the `ampscript` prefix; Handlebars options use the `handlebars` prefix.
 
-| Option                                                                                        | Type                                                                         | Default         | Description                                    |
-| --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | --------------- | ---------------------------------------------- |
-| [`ampscriptSpacing`](docs/options/ampscript-spacing.md)                                       | boolean                                                                      | `true`          | Spacing in inline expressions: `%%= v(@x) =%%` |
-| [`ampscriptEnforceVariableCasing`](docs/options/ampscript-enforce-variable-casing.md)         | boolean                                                                      | `true`          | Normalize variable casing to first occurrence  |
-| [`ampscriptRemoveUnnecessaryBrackets`](docs/options/ampscript-remove-unnecessary-brackets.md) | boolean                                                                      | `true`          | Remove needless parentheses                    |
-| [`ampscriptQuoteStyle`](docs/options/ampscript-quote-style.md)                                | `"single"` \| `"double"`                                                     | `"single"`      | String quote style                             |
-| [`ampscriptKeywordCase`](docs/options/ampscript-keyword-case.md)                              | `"lower"` \| `"upper"` \| `"preserve"`                                       | `"lower"`       | Keyword casing                                 |
-| [`ampscriptFunctionCase`](docs/options/ampscript-function-case.md)                            | `"upper-camel"` \| `"lower-camel"` \| `"upper"` \| `"lower"` \| `"preserve"` | `"upper-camel"` | Function name casing                           |
+| Option                                                                                        | Type                                                                         | Default         | Description                                                               |
+| --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | --------------- | ------------------------------------------------------------------------- |
+| [`ampscriptSpacing`](docs/options/ampscript-spacing.md)                                       | boolean                                                                      | `true`          | Spacing in inline expressions: `%%= v(@x) =%%`                            |
+| [`ampscriptEnforceVariableCasing`](docs/options/ampscript-enforce-variable-casing.md)         | boolean                                                                      | `true`          | Normalize variable casing to first occurrence                             |
+| [`ampscriptRemoveUnnecessaryBrackets`](docs/options/ampscript-remove-unnecessary-brackets.md) | boolean                                                                      | `true`          | Remove needless parentheses                                               |
+| [`ampscriptQuoteStyle`](docs/options/ampscript-quote-style.md)                                | `"single"` \| `"double"`                                                     | `"single"`      | String quote style                                                        |
+| [`ampscriptKeywordCase`](docs/options/ampscript-keyword-case.md)                              | `"lower"` \| `"upper"` \| `"preserve"`                                       | `"lower"`       | Keyword casing                                                            |
+| [`ampscriptFunctionCase`](docs/options/ampscript-function-case.md)                            | `"upper-camel"` \| `"lower-camel"` \| `"upper"` \| `"lower"` \| `"preserve"` | `"upper-camel"` | Function name casing                                                      |
 | [`ampscriptBlockLineBreaks`](docs/options/ampscript-block-line-breaks.md)                     | boolean                                                                      | `false`         | Optional line breaks around `%%[ ]%%` when not already at a line boundary |
-| [`ampscriptVarDeclarationStyle`](docs/options/ampscript-var-declaration-style.md)             | `"auto"` \| `"single-line"` \| `"multi-line"`                                | `"multi-line"`  | Var declaration formatting                     |
-| [`handlebarsSpacing`](docs/options/handlebars-spacing.md)                                     | boolean                                                                      | `false`         | Pad simple/triple `{{…}}`; sigil mustaches stay tight |
-| [`handlebarsHelperCase`](docs/options/handlebars-helper-case.md)                              | `"upper-camel"` \| `"lower-camel"` \| `"upper"` \| `"lower"` \| `"preserve"` | `"lower-camel"` | Casing of known MCN Handlebars helper names    |
+| [`ampscriptVarDeclarationStyle`](docs/options/ampscript-var-declaration-style.md)             | `"auto"` \| `"single-line"` \| `"multi-line"`                                | `"multi-line"`  | Var declaration formatting                                                |
+| [`handlebarsSpacing`](docs/options/handlebars-spacing.md)                                     | boolean                                                                      | `false`         | Pad simple/triple `{{…}}`; sigil mustaches stay tight                     |
+| [`handlebarsHelperCase`](docs/options/handlebars-helper-case.md)                              | `"upper-camel"` \| `"lower-camel"` \| `"upper"` \| `"lower"` \| `"preserve"` | `"lower-camel"` | Casing of known MCN Handlebars helper names                               |
 
 ### Example `.prettierrc`
 
@@ -54,14 +54,14 @@ AMPscript options use the `ampscript` prefix; Handlebars options use the `handle
 
 ## Supported File Types
 
-| Extension    | VS Code language ID | Parser             | What happens                                                                    |
-| ------------ | ------------------- | ------------------ | ------------------------------------------------------------------------------- |
-| `.ampscript` | `ampscript`         | `ampscript-parse`  | Full AMPscript formatting                                                       |
-| `.amp`       | `ampscript`         | `ampscript-parse`  | Full AMPscript formatting                                                       |
+| Extension    | VS Code language ID | Parser             | What happens                                                                                                                                                          |
+| ------------ | ------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.ampscript` | `ampscript`         | `ampscript-parse`  | Full AMPscript formatting                                                                                                                                             |
+| `.amp`       | `ampscript`         | `ampscript-parse`  | Full AMPscript formatting                                                                                                                                             |
 | `.html`      | `sfmc`              | `ampscript-parse`  | AMPscript formatted; HTML and `<script runat="server">` delegated to Prettier; MCN `{{…}}` Handlebars normalized (see [Handlebars](#handlebars-marketing-cloud-next)) |
-| `.hbs`       | `handlebars`        | `ampscript-parse`  | Marketing Cloud Next Handlebars normalized (see [Handlebars](#handlebars-marketing-cloud-next)); embedded HTML delegated to Prettier |
-| `.ssjs`      | `ssjs`              | `babel` (built-in) | Standard JavaScript formatting                                                  |
-| `.sql`       | —                   | `sql`              | SQL via composed `prettier-plugin-sql`                                          |
+| `.hbs`       | `handlebars`        | `ampscript-parse`  | Marketing Cloud Next Handlebars normalized (see [Handlebars](#handlebars-marketing-cloud-next)); embedded HTML delegated to Prettier                                  |
+| `.ssjs`      | `ssjs`              | `babel` (built-in) | Standard JavaScript formatting                                                                                                                                        |
+| `.sql`       | —                   | `sql`              | SQL via composed `prettier-plugin-sql`                                                                                                                                |
 
 `.html` files are auto-detected as `sfmc` by the `vscode-sfmc-language` extension (v1.6.0+) when they contain AMPscript or SSJS content. Plain HTML files (language ID `html`) are out of scope and handled by Prettier's built-in HTML formatter directly.
 
@@ -69,13 +69,13 @@ AMPscript options use the `ampscript` prefix; Handlebars options use the `handle
 
 This plugin exports [Prettier `defaultOptions`](https://prettier.io/docs/plugins#defaultoptions). Prettier merges them from whichever plugin **owns the active printer** for the file being formatted. This package supplies printers for **AMPscript**, **SQL** (via composed `prettier-plugin-sql`), and the shared **`estree`** printer (the same implementation Prettier ships for JavaScript). User plugins are loaded **after** built-ins, so this plugin becomes the effective `estree` printer—meaning **`.ssjs`** files (typically `parser: "babel"`) pick up the table below **without** copying these keys into `.prettierrc`.
 
-| Option | Default | Rationale |
-| ------ | ------- | --------- |
-| `useTabs` | `false` | SFMC often normalizes tabs away on save; spaces keep layout stable. |
-| `tabWidth` | `4` | Readable indentation (override in config if you prefer 2). |
-| `printWidth` | `100` | Fits typical editor panes better than Prettier’s 80. |
-| `singleQuote` | `true` | Common JS style; aligns with `ampscriptQuoteStyle: 'single'` where the core quote option applies. |
-| `trailingComma` | `'none'` | Avoids trailing commas that can break SSJS in some SFMC contexts. |
+| Option          | Default  | Rationale                                                                                         |
+| --------------- | -------- | ------------------------------------------------------------------------------------------------- |
+| `useTabs`       | `false`  | SFMC often normalizes tabs away on save; spaces keep layout stable.                               |
+| `tabWidth`      | `4`      | Readable indentation (override in config if you prefer 2).                                        |
+| `printWidth`    | `100`    | Fits typical editor panes better than Prettier’s 80.                                              |
+| `singleQuote`   | `true`   | Common JS style; aligns with `ampscriptQuoteStyle: 'single'` where the core quote option applies. |
+| `trailingComma` | `'none'` | Avoids trailing commas that can break SSJS in some SFMC contexts.                                 |
 
 String delimiters inside AMPscript blocks still follow `ampscriptQuoteStyle`. See [Prettier options](https://prettier.io/docs/options) for every standard flag.
 
@@ -89,14 +89,14 @@ String delimiters inside AMPscript blocks still follow `ampscriptQuoteStyle`. Se
 
 **Defaults for SFMC-style T-SQL** (from composed [prettier-plugin-sql](https://www.npmjs.com/package/prettier-plugin-sql)):
 
-| Option | Default | Other values | Rationale |
-| ------ | ------- | ------------ | --------- |
-| `language` | `tsql` | n/a | Must stay `tsql` for SFMC T-SQL. Other dialects are not supported for SFMC SQL; changing this can break formatting or behaviour. |
-| `formatter` | `sql-formatter` | n/a | Must stay `sql-formatter` for SFMC SQL. Other formatters are not supported in this context; changing this can break. |
-| `keywordCase` | `upper` | `preserve`, `lower` | Casing for reserved keywords. |
-| `functionCase` | `upper` | `preserve`, `lower` | Casing for function names. |
-| `identifierCase` | `preserve` | `upper`, `lower` | Unquoted identifiers only (upstream treats this as experimental). |
-| `dataTypeCase` | `preserve` | `upper`, `lower` | Casing for data type names. |
+| Option           | Default         | Other values        | Rationale                                                                                                                        |
+| ---------------- | --------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `language`       | `tsql`          | n/a                 | Must stay `tsql` for SFMC T-SQL. Other dialects are not supported for SFMC SQL; changing this can break formatting or behaviour. |
+| `formatter`      | `sql-formatter` | n/a                 | Must stay `sql-formatter` for SFMC SQL. Other formatters are not supported in this context; changing this can break.             |
+| `keywordCase`    | `upper`         | `preserve`, `lower` | Casing for reserved keywords.                                                                                                    |
+| `functionCase`   | `upper`         | `preserve`, `lower` | Casing for function names.                                                                                                       |
+| `identifierCase` | `preserve`      | `upper`, `lower`    | Unquoted identifiers only (upstream treats this as experimental).                                                                |
+| `dataTypeCase`   | `preserve`      | `upper`, `lower`    | Casing for data type names.                                                                                                      |
 
 Do **not** override `language` or `formatter` for SFMC. You may override the **casing** options in `.prettierrc` or under `overrides` with `files: "*.sql"` if you want different keyword/function/identifier/data-type casing.
 

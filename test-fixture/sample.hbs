@@ -1,20 +1,20 @@
 <section class="card">
     <!-- Standalone Marketing Cloud Next Handlebars (.hbs) -->
     <!-- known helpers recased (default lower-camel); unknown paths preserved -->
-    <h1>Hello {{   firstName   }}</h1>
+    <h1>Hello {{firstName}}</h1>
 
-    {{#EACH   products   as |product index|}}
-    <p>{{   product.Name   }} — {{ FormatCurrency   product.price }}</p>
-    {{/EACH}}
+    {{#each products as |product index|}}
+    <p>{{product.Name}} — {{formatCurrency product.price}}</p>
+    {{/each}}
 
     <!-- subexpression head recased, outer unknown head preserved -->
-    <p>{{ myOffer (ISEMPTY   discount)   "no offer"   discount }}</p>
+    <p>{{myOffer (isEmpty discount) "no offer" discount}}</p>
 
     <!-- string literal preserved byte-for-byte -->
     <p>{{concat "a   b   c"}}</p>
 
     <!-- triple-stache; padded only with --opt handlebarsSpacing=true -->
-    <p>{{{   rawHtml   }}}</p>
+    <p>{{{rawHtml}}}</p>
 
     <!-- comment preserved verbatim -->
     {{!--  keep   this   spacing  --}}
