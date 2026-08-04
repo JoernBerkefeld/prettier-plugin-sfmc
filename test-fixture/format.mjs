@@ -64,7 +64,9 @@ if (!target && !useFixtures) {
     process.exit(1);
 }
 
-/** Map file extension → the plugin parser that handles it. */
+/**
+ * Map file extension → the plugin parser that handles it.
+ */
 const parserByExtension = {
     '.html': 'ampscript-parse',
     '.hbs': 'ampscript-parse',
@@ -107,7 +109,9 @@ async function formatFile(filepath, printOutput) {
     return { ok: true, idempotent: isIdempotent, changed: isChanged, parser };
 }
 
-/** Absolute path of the requested target (file or directory). */
+/**
+ * Absolute path of the requested target (file or directory).
+ */
 const targetPath = useFixtures ? fixturesDirectory : resolve(process.cwd(), target);
 const isDirectory = statSync(targetPath).isDirectory();
 

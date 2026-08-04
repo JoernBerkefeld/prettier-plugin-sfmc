@@ -24,7 +24,9 @@ import * as prettier from 'prettier';
  * @returns {Record<string, object>} Option map with adjusted defaults.
  */
 function mergeSqlOptionsWithSfmcDefaults(sqlOptions) {
-    /** @type {Record<string, object>} */
+    /**
+     * @type {Record<string, object>}
+     */
     const merged = {};
     for (const [key, descriptor] of Object.entries(sqlOptions)) {
         merged[key] = { ...descriptor };
@@ -81,7 +83,9 @@ function applyHelperCase(name, mode) {
     return canonical[0].toUpperCase() + canonical.slice(1);
 }
 
-/** Leading sigils that may precede the head token of a mustache. */
+/**
+ * Leading sigils that may precede the head token of a mustache.
+ */
 const MUSTACHE_SIGILS = new Set(['#', '/', '^', '>', '&']);
 
 /**
@@ -119,7 +123,9 @@ function normalizeMustacheInner(inner, options = {}) {
 
     // First pass: collapse whitespace outside string literals, preserving quotes.
     let collapsed = '';
-    /** @type {string|undefined} */
+    /**
+     * @type {string|undefined}
+     */
     let quote;
     for (const ch of inner) {
         if (quote) {
@@ -234,7 +240,9 @@ const HANDLEBARS_PH = 'HANDLEBARSPH';
  * @returns {number} Index of the closing delimiter, or `-1` when not found.
  */
 function findClosingDelimiter(text, start, closeDelim, end) {
-    /** @type {string|undefined} */
+    /**
+     * @type {string|undefined}
+     */
     let quote;
     let index = start;
     while (index < end) {
@@ -279,7 +287,9 @@ function findClosingDelimiter(text, start, closeDelim, end) {
 function extractHandlebarsRegions(text, options = {}) {
     const isSpacing = options.spacing === true;
     const helperCase = options.helperCase || 'lower-camel';
-    /** @type {string[]} */
+    /**
+     * @type {string[]}
+     */
     const tokens = [];
     if (typeof text !== 'string' || !text.includes('{{')) {
         return { html: text, tokens };

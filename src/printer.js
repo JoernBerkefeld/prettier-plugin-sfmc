@@ -12,7 +12,9 @@ import { needsLeadingBlockBreak, needsTrailingBlockBreak } from './ampscript-blo
 
 const { group, indent, join, line, softline, hardline } = prettier.doc.builders;
 
-/** Lowercase keyword names for casing normalization (AMPSCRIPT_KEYWORDS is an object array). */
+/**
+ * Lowercase keyword names for casing normalization (AMPSCRIPT_KEYWORDS is an object array).
+ */
 const AMPSCRIPT_KEYWORD_NAMES = new Set(AMPSCRIPT_KEYWORDS.map((k) => k.name.toLowerCase()));
 
 /**
