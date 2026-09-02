@@ -11,6 +11,10 @@
  * - sql-formatter 15.7.3 (hoisted to the monorepo root node_modules)
  * - prettier 3.9.6 (prettier-plugin-sfmc/node_modules/prettier)
  *
+ * Byte-identical parity has since been re-verified against sql-formatter 15.8.2
+ * (see the `SQL environment` version guard below); the captured strings above
+ * remain unchanged.
+ *
  * The option sweep in `legacy option names` uses the pre-rename keys
  * (`keywordCase`, …). After the rename to `sql*` those keys stay registered as
  * deprecated aliases, so that block doubles as the alias regression test.
@@ -106,8 +110,8 @@ const DENSE_OPERATORS_EXPECTED =
 // ── Environment ──────────────────────────────────────────────────────────────
 
 describe('SQL environment', () => {
-    test('resolves sql-formatter 15.7.3 (the version the baseline was captured with)', () => {
-        expect(require('sql-formatter/package.json').version).toBe('15.7.3');
+    test('resolves sql-formatter 15.8.2 (the version the baseline was captured with)', () => {
+        expect(require('sql-formatter/package.json').version).toBe('15.8.2');
     });
 });
 
