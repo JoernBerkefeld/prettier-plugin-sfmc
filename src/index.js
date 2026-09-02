@@ -3,7 +3,8 @@
  *
  * A unified Prettier plugin for Salesforce Marketing Cloud.
  * Handles AMPscript formatting (.ampscript, .amp, .html), SSJS file
- * registration (.ssjs), and SQL (.sql) via composed prettier-plugin-sql.
+ * registration (.ssjs), and SQL (.sql) via a direct sql-formatter integration
+ * fixed to the Transact-SQL dialect (SFMC Query Activities are T-SQL only).
  * Re-exports Prettier’s `estree` printer so `defaultOptions` apply to JS/SSJS.
  *
  * Exports: languages, parsers, printers, options, defaultOptions
@@ -12,38 +13,165 @@
 
 import { parse } from 'ampscript-parser';
 import { getHelper } from 'handlebars-data';
-import sqlPlugin from 'prettier-plugin-sql';
 import { printers as prettierEstreePrinters } from 'prettier/plugins/estree';
+import { formatDialect, transactsql } from 'sql-formatter';
 import { printAmpscriptNode, collectVariableMap } from './printer.js';
 import * as prettier from 'prettier';
 
+// ── SQL options ──────────────────────────────────────────────────────────────
+
+const CASE_CHOICES = [
+    { value: 'upper', description: 'Convert to UPPERCASE' },
+    { value: 'lower', description: 'Convert to lowercase' },
+    { value: 'preserve', description: 'Keep the casing found in the source' },
+];
+
 /**
- * Clone sql plugin option descriptors and set SFMC-friendly defaults.
+ * Single source of truth for the SQL option surface. Each row yields two
+ * Prettier option descriptors: the canonical `sql*` option (with default) and
+ * the legacy, un-prefixed alias (no default, flagged deprecated). Both are
+ * generated from the same row so they can never drift apart.
  *
- * @param {Record<string, object>} sqlOptions
- * @returns {Record<string, object>} Option map with adjusted defaults.
+ * `legacy` is also the key name sql-formatter expects.
  */
-function mergeSqlOptionsWithSfmcDefaults(sqlOptions) {
+const SQL_OPTION_TABLE = [
+    {
+        name: 'sqlKeywordCase',
+        legacy: 'keywordCase',
+        type: 'choice',
+        default: 'upper',
+        choices: CASE_CHOICES,
+        description: 'Casing applied to reserved SQL keywords (SELECT, FROM, WHERE, JOIN, …).',
+    },
+    {
+        name: 'sqlFunctionCase',
+        legacy: 'functionCase',
+        type: 'choice',
+        default: 'upper',
+        choices: CASE_CHOICES,
+        description: 'Casing applied to SQL function names (COUNT, ISNULL, CONVERT, CAST, …).',
+    },
+    {
+        name: 'sqlIdentifierCase',
+        legacy: 'identifierCase',
+        type: 'choice',
+        default: 'preserve',
+        choices: CASE_CHOICES,
+        description:
+            'Casing applied to unquoted identifiers (column names, aliases). ' +
+            'Bracketed names such as `[First Name]` are never changed.',
+    },
+    {
+        name: 'sqlDataTypeCase',
+        legacy: 'dataTypeCase',
+        type: 'choice',
+        default: 'preserve',
+        choices: CASE_CHOICES,
+        description:
+            'Casing applied to data types inside CAST/CONVERT (int, varchar, datetime, …).',
+    },
+    {
+        name: 'sqlIndentStyle',
+        legacy: 'indentStyle',
+        type: 'choice',
+        default: 'standard',
+        choices: [
+            {
+                value: 'standard',
+                description: 'Indent clause bodies by `tabWidth` (or a tab when `useTabs` is set)',
+            },
+            {
+                value: 'tabularLeft',
+                description:
+                    'Align clause bodies in a 10-character column with keywords flush left; ignores `tabWidth`',
+            },
+            {
+                value: 'tabularRight',
+                description:
+                    'Align clause bodies in a 10-character column with keywords right-aligned; ignores `tabWidth`',
+            },
+        ],
+        description: 'Layout used to indent clause bodies below SELECT / FROM / WHERE.',
+    },
+    {
+        name: 'sqlLogicalOperatorNewline',
+        legacy: 'logicalOperatorNewline',
+        type: 'choice',
+        default: 'before',
+        choices: [
+            { value: 'before', description: 'Start each new line with AND / OR' },
+            { value: 'after', description: 'End each line with AND / OR' },
+        ],
+        description: 'Whether a line break is placed before or after AND / OR in conditions.',
+    },
+    {
+        name: 'sqlExpressionWidth',
+        legacy: 'expressionWidth',
+        type: 'int',
+        default: 50,
+        description:
+            'Longest parenthesised expression (e.g. an IN (...) list) kept on a single line ' +
+            'before it is broken onto multiple lines.',
+    },
+    {
+        name: 'sqlDenseOperators',
+        legacy: 'denseOperators',
+        type: 'boolean',
+        default: false,
+        description:
+            'Remove the spaces around comparison and arithmetic operators (`a=b` instead of `a = b`). ' +
+            'AND / OR are unaffected.',
+    },
+];
+
+/**
+ * Build the Prettier option descriptors (canonical + deprecated alias) from
+ * {@link SQL_OPTION_TABLE}.
+ *
+ * @returns {Record<string, object>} Option descriptor map.
+ */
+function buildSqlOptions() {
     /**
      * @type {Record<string, object>}
      */
-    const merged = {};
-    for (const [key, descriptor] of Object.entries(sqlOptions)) {
-        merged[key] = { ...descriptor };
-    }
-    const defaults = {
-        language: 'tsql',
-        keywordCase: 'upper',
-        functionCase: 'upper',
-        identifierCase: 'preserve',
-        dataTypeCase: 'preserve',
-    };
-    for (const [key, defaultValue] of Object.entries(defaults)) {
-        if (Object.hasOwn(merged, key)) {
-            merged[key].default = defaultValue;
+    const built = {};
+    for (const row of SQL_OPTION_TABLE) {
+        const shared = { type: row.type, category: 'SQL' };
+        if (row.choices) {
+            shared.choices = row.choices;
         }
+        built[row.name] = { ...shared, default: row.default, description: row.description };
+        built[row.legacy] = {
+            ...shared,
+            deprecated: true,
+            description: `Deprecated alias of \`${row.name}\`; will be removed in the next major release.`,
+        };
     }
-    return merged;
+    return built;
+}
+
+/**
+ * Pick the sql-formatter options out of Prettier's resolved option bag.
+ *
+ * A legacy alias has no default, so it is only present when the user set it
+ * explicitly — in that case it wins over the canonical `sql*` option (which
+ * always carries a value because it has a default).
+ *
+ * @param {Record<string, unknown>} options Prettier's resolved options.
+ * @returns {Record<string, unknown>} Options to forward to sql-formatter.
+ */
+function pickSqlFormatterOptions(options) {
+    /**
+     * @type {Record<string, unknown>}
+     */
+    const picked = {
+        tabWidth: options.tabWidth,
+        useTabs: options.useTabs,
+    };
+    for (const row of SQL_OPTION_TABLE) {
+        picked[row.legacy] = options[row.legacy] ?? options[row.name];
+    }
+    return picked;
 }
 
 // ── Handlebars (MCN) inner normalization ─────────────────────────────────────
@@ -90,9 +218,11 @@ const MUSTACHE_SIGILS = new Set(['#', '/', '^', '>', '&']);
 
 /**
  * A head token is eligible for recasing only when it is a bare helper name:
- * a single identifier segment with no path separators (`.` / `/`), no `@`
- * data-variable prefix, and no `=` (hash key). This keeps `item.title`,
- * `@index`, and `key=value` untouched while still recasing `formatDate`.
+ * a single identifier segment matching `^[A-Za-z_]\w*$`. That pattern admits
+ * only letters, digits and underscores, so any token carrying a path separator
+ * (`.` / `/`), an `@` data-variable prefix, or an `=` (hash key) fails the test.
+ * This keeps `item.title`, `@index`, and `key=value` untouched while still
+ * recasing `formatDate`.
  *
  * @param {string} token Candidate head token.
  * @returns {boolean} True when the token is a bare, recasable name.
@@ -379,7 +509,13 @@ export const languages = [
         extensions: ['.ssjs'],
         vscodeLanguageIds: ['ssjs'],
     },
-    ...sqlPlugin.languages,
+    {
+        name: 'SQL',
+        parsers: ['sql'],
+        extensions: ['.sql'],
+        vscodeLanguageIds: ['sql'],
+        linguistLanguageId: 333,
+    },
 ];
 
 // ── Parsers ──────────────────────────────────────────────────────────────────
@@ -387,7 +523,15 @@ export const languages = [
 const PRAGMA_RE = /^\s*\/\*\*?\s*@(?:format|prettier)\s*\*\//;
 
 export const parsers = {
-    ...sqlPlugin.parsers,
+    // sql-formatter works on raw text, so the "AST" is the source string itself.
+    // Pragma insertion/detection, range formatting and cursor tracking are
+    // intentionally unsupported for SQL.
+    sql: {
+        parse: (text) => text,
+        astFormat: 'sql',
+        locStart: () => -1,
+        locEnd: () => -1,
+    },
     'ampscript-parse': {
         parse(text) {
             return parse(text);
@@ -418,7 +562,27 @@ export const parsers = {
 // ── Printers ─────────────────────────────────────────────────────────────────
 
 export const printers = {
-    ...sqlPlugin.printers,
+    sql: {
+        /**
+         * Format raw SQL text via sql-formatter, fixed to the Transact-SQL
+         * dialect. The "AST" is the source string itself (see `parsers.sql`),
+         * so `path.node` is the text. A trailing newline is appended to match
+         * the previous prettier-plugin-sql behavior.
+         *
+         * @param {import('prettier').AstPath} path Prettier path; `path.node` is the raw SQL text.
+         * @param {Record<string, unknown>} options Prettier's resolved options.
+         * @returns {string} Formatted SQL with a trailing newline.
+         */
+        print(path, options) {
+            const text = path.node;
+            return (
+                formatDialect(text, {
+                    dialect: transactsql,
+                    ...pickSqlFormatterOptions(options),
+                }) + '\n'
+            );
+        },
+    },
     estree: prettierEstreePrinters.estree,
     'ampscript-ast': {
         print(path, options, print) {
@@ -740,7 +904,7 @@ const sfmcOptions = {
 };
 
 export const options = {
-    ...mergeSqlOptionsWithSfmcDefaults(sqlPlugin.options),
+    ...buildSqlOptions(),
     ...sfmcOptions,
 };
 

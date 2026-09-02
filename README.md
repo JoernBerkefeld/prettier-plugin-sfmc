@@ -1,6 +1,6 @@
 # prettier-plugin-sfmc
 
-Unified Prettier plugin for **Salesforce Marketing Cloud** — formats **AMPscript** (`.ampscript`, `.amp`, `.html`), normalizes **Marketing Cloud Next Handlebars** (`.hbs` and `{{…}}` inside `.html`), registers **SSJS** (`.ssjs`) with Prettier’s JavaScript formatter, and formats **SQL** (`.sql`) via embedded [prettier-plugin-sql](https://www.npmjs.com/package/prettier-plugin-sql).
+Unified Prettier plugin for **Salesforce Marketing Cloud** — formats **AMPscript** (`.ampscript`, `.amp`, `.html`), normalizes **Marketing Cloud Next Handlebars** (`.hbs` and `{{…}}` inside `.html`), registers **SSJS** (`.ssjs`) with Prettier’s JavaScript formatter, and formats **SQL** (`.sql`) directly with [sql-formatter](https://www.npmjs.com/package/sql-formatter), fixed to the Transact-SQL dialect.
 
 ## Installation
 
@@ -61,13 +61,13 @@ AMPscript options use the `ampscript` prefix; Handlebars options use the `handle
 | `.html`      | `sfmc`              | `ampscript-parse`  | AMPscript formatted; HTML and `<script runat="server">` delegated to Prettier; MCN `{{…}}` Handlebars normalized (see [Handlebars](#handlebars-marketing-cloud-next)) |
 | `.hbs`       | `handlebars`        | `ampscript-parse`  | Marketing Cloud Next Handlebars normalized (see [Handlebars](#handlebars-marketing-cloud-next)); embedded HTML delegated to Prettier                                  |
 | `.ssjs`      | `ssjs`              | `babel` (built-in) | Standard JavaScript formatting                                                                                                                                        |
-| `.sql`       | —                   | `sql`              | SQL via composed `prettier-plugin-sql`                                                                                                                                |
+| `.sql`       | `sql`               | `sql`              | SQL via `sql-formatter`, fixed to the Transact-SQL dialect                                                                                                            |
 
 `.html` files are auto-detected as `sfmc` by the `vscode-sfmc-language` extension (v1.6.0+) when they contain AMPscript or SSJS content. Plain HTML files (language ID `html`) are out of scope and handled by Prettier's built-in HTML formatter directly.
 
 ## Core Prettier defaults (AMPscript, HTML, SQL, JavaScript / SSJS)
 
-This plugin exports [Prettier `defaultOptions`](https://prettier.io/docs/plugins#defaultoptions). Prettier merges them from whichever plugin **owns the active printer** for the file being formatted. This package supplies printers for **AMPscript**, **SQL** (via composed `prettier-plugin-sql`), and the shared **`estree`** printer (the same implementation Prettier ships for JavaScript). User plugins are loaded **after** built-ins, so this plugin becomes the effective `estree` printer—meaning **`.ssjs`** files (typically `parser: "babel"`) pick up the table below **without** copying these keys into `.prettierrc`.
+This plugin exports [Prettier `defaultOptions`](https://prettier.io/docs/plugins#defaultoptions). Prettier merges them from whichever plugin **owns the active printer** for the file being formatted. This package supplies printers for **AMPscript**, **SQL** (via `sql-formatter`), and the shared **`estree`** printer (the same implementation Prettier ships for JavaScript). User plugins are loaded **after** built-ins, so this plugin becomes the effective `estree` printer—meaning **`.ssjs`** files (typically `parser: "babel"`) pick up the table below **without** copying these keys into `.prettierrc`.
 
 | Option          | Default  | Rationale                                                                                         |
 | --------------- | -------- | ------------------------------------------------------------------------------------------------- |
@@ -85,22 +85,55 @@ String delimiters inside AMPscript blocks still follow `ampscriptQuoteStyle`. Se
 
 ## SQL (Transact-SQL / SFMC)
 
-`.sql` formatting is provided by [prettier-plugin-sql](https://github.com/un-ts/prettier/tree/master/packages/sql) (npm: [prettier-plugin-sql](https://www.npmjs.com/package/prettier-plugin-sql)). You only need `prettier` and `prettier-plugin-sfmc`; do not add a second entry in `plugins` for SQL.
+`.sql` formatting is powered directly by [sql-formatter](https://www.npmjs.com/package/sql-formatter), with the dialect **fixed to Transact-SQL** (SFMC Query Activities are T-SQL only). You only need `prettier` and `prettier-plugin-sfmc`; do not add a second entry in `plugins` for SQL.
 
-**Defaults for SFMC-style T-SQL** (from composed [prettier-plugin-sql](https://www.npmjs.com/package/prettier-plugin-sql)):
+### Why not `prettier-plugin-sql`?
 
-| Option           | Default         | Other values        | Rationale                                                                                                                        |
-| ---------------- | --------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `language`       | `tsql`          | n/a                 | Must stay `tsql` for SFMC T-SQL. Other dialects are not supported for SFMC SQL; changing this can break formatting or behaviour. |
-| `formatter`      | `sql-formatter` | n/a                 | Must stay `sql-formatter` for SFMC SQL. Other formatters are not supported in this context; changing this can break.             |
-| `keywordCase`    | `upper`         | `preserve`, `lower` | Casing for reserved keywords.                                                                                                    |
-| `functionCase`   | `upper`         | `preserve`, `lower` | Casing for function names.                                                                                                       |
-| `identifierCase` | `preserve`      | `upper`, `lower`    | Unquoted identifiers only (upstream treats this as experimental).                                                                |
-| `dataTypeCase`   | `preserve`      | `upper`, `lower`    | Casing for data type names.                                                                                                      |
+Earlier releases formatted `.sql` through [`prettier-plugin-sql`](https://www.npmjs.com/package/prettier-plugin-sql). It is a solid, well-maintained package — but it does more than SFMC needs. It bundles the ~90 MB `node-sql-parser` backend to support parsing-based features and many SQL dialects, none of which SFMC uses. This plugin only needs the whitespace-and-casing path that `sql-formatter` provides for T-SQL, so it now depends on `sql-formatter` alone. Dropping the parser backend keeps the plugin small enough to bundle inside mcdev's VS Code extension, with **byte-identical** SFMC defaults (see below).
 
-Do **not** override `language` or `formatter` for SFMC. You may override the **casing** options in `.prettierrc` or under `overrides` with `files: "*.sql"` if you want different keyword/function/identifier/data-type casing.
+### Dialect and defaults
 
-Core layout still follows [Prettier options](https://prettier.io/docs/options). SQL-specific knobs (`expressionWidth`, `linesBetweenQueries`, etc.) are documented in the upstream package README.
+The dialect is fixed to **T-SQL** and cannot be changed. A minimal config still yields the SFMC defaults, byte-identical to previous releases:
+
+```json
+{
+  "plugins": ["prettier-plugin-sfmc"]
+}
+```
+
+The eight SQL options use the `sql*` prefix. Each has a **legacy alias** (the pre-rename, un-prefixed key) that is still accepted but **deprecated**. A legacy key has no default, so it only takes effect when you set it explicitly; when set it **wins** over its `sql*` counterpart and Prettier's CLI prints a deprecation warning. Legacy aliases will be **removed in the next major version**.
+
+| Option                                                                | Type                                     | Default      | Description                                                       | Legacy alias (deprecated) |
+| --------------------------------------------------------------------- | ---------------------------------------- | ------------ | ---------------------------------------------------------------- | ------------------------- |
+| [`sqlKeywordCase`](docs/options/sql-keyword-case.md)                  | `"upper"` \| `"lower"` \| `"preserve"`   | `"upper"`    | Casing of reserved keywords (`SELECT`, `FROM`, `WHERE`, …)       | `keywordCase`             |
+| [`sqlFunctionCase`](docs/options/sql-function-case.md)                | `"upper"` \| `"lower"` \| `"preserve"`   | `"upper"`    | Casing of function names (`COUNT`, `ISNULL`, `CAST`, …)          | `functionCase`            |
+| [`sqlIdentifierCase`](docs/options/sql-identifier-case.md)            | `"upper"` \| `"lower"` \| `"preserve"`   | `"preserve"` | Casing of unquoted identifiers (`[bracketed]` / `@vars` exempt)  | `identifierCase`          |
+| [`sqlDataTypeCase`](docs/options/sql-data-type-case.md)               | `"upper"` \| `"lower"` \| `"preserve"`   | `"preserve"` | Casing of data-type names in `CAST` / `CONVERT`                  | `dataTypeCase`            |
+| [`sqlIndentStyle`](docs/options/sql-indent-style.md)                  | `"standard"` \| `"tabularLeft"` \| `"tabularRight"` | `"standard"` | Indentation layout (tabular modes ignore `tabWidth`) | `indentStyle`             |
+| [`sqlLogicalOperatorNewline`](docs/options/sql-logical-operator-newline.md) | `"before"` \| `"after"`            | `"before"`   | Whether wrapped `AND` / `OR` lead or trail the line break        | `logicalOperatorNewline`  |
+| [`sqlExpressionWidth`](docs/options/sql-expression-width.md)          | `number`                                 | `50`         | Width budget before `IN (...)` / `CAST(...)` / conditions wrap   | `expressionWidth`         |
+| [`sqlDenseOperators`](docs/options/sql-dense-operators.md)            | `boolean`                                | `false`      | Remove spaces around `=` and other symbol operators              | `denseOperators`          |
+
+You may override the `sql*` options in `.prettierrc` or under `overrides` with `files: "*.sql"`. Core layout still follows [Prettier options](https://prettier.io/docs/options).
+
+### Removed options
+
+The following options from the old `prettier-plugin-sql` surface are **no longer recognised** and have no alias. A leftover key in `.prettierrc` is ignored — Prettier's CLI prints a `[warn] Ignored unknown option { … }` message once per `.sql` file until you remove it.
+
+| Removed option          | Why it is gone                                                              |
+| ----------------------- | -------------------------------------------------------------------------- |
+| `language`              | Dialect is fixed to T-SQL; no dialect selection is offered.                |
+| `dialect`               | Same — the T-SQL dialect table is hard-coded.                              |
+| `formatter`             | Formatting always uses `sql-formatter`; there is nothing to switch.        |
+| `type`                  | Belonged to the removed `node-sql-parser` backend.                         |
+| `database`              | Belonged to the removed `node-sql-parser` backend.                         |
+| `params`                | Parser-backend parameter substitution; unused by SFMC.                     |
+| `paramTypes`            | Parser-backend parameter typing; unused by SFMC.                           |
+| `uppercase`             | Superseded by the granular `sql*Case` options.                             |
+| `linesBetweenQueries`   | Multi-statement spacing knob SFMC single-query activities never need.      |
+| `newlineBeforeSemicolon`| Statement-terminator styling not applicable to SFMC queries.               |
+
+**Migration note:** if your `.prettierrc` still lists any removed key, delete it — otherwise Prettier logs `[warn] Ignored unknown option { … }` for each `.sql` file it formats.
 
 ## HTML Embedding
 
