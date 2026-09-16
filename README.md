@@ -24,6 +24,24 @@ To use explicitly in `.prettierrc`:
 }
 ```
 
+### TypeScript configuration
+
+The package ships declarations for its five named exports and augments Prettier's `Options` interface with all SFMC options. Activate that augmentation once in a TypeScript-loaded config or setup file:
+
+```ts
+import 'prettier-plugin-sfmc';
+import type { Config } from 'prettier';
+
+const config: Config = {
+    plugins: ['prettier-plugin-sfmc'],
+    ampscriptKeywordCase: 'upper',
+};
+
+export default config;
+```
+
+The package intentionally has no default export.
+
 ## Options
 
 AMPscript options use the `ampscript` prefix; Handlebars options use the `handlebars` prefix.

@@ -4,8 +4,12 @@
     "description": "Prettier plugin for Salesforce Marketing Cloud - AMPscript, Marketing Cloud Next Handlebars, SSJS, and SQL formatting",
     "type": "module",
     "main": "src/index.js",
+    "types": "./src/index.d.ts",
     "exports": {
-        ".": "./src/index.js"
+        ".": {
+            "types": "./src/index.d.ts",
+            "default": "./src/index.js"
+        }
     },
     "files": [
         "src",
@@ -25,6 +29,8 @@
     "scripts": {
         "example": "prettier --plugin . example.ampscript",
         "test": "node ./scripts/run-jest.mjs",
+        "typecheck": "tsc --project tsconfig.json",
+        "check:package-types": "node ./scripts/check-package-types.mjs",
         "lint": "eslint .",
         "lint:fix": "eslint --fix .",
         "prepare": "husky || true",
@@ -65,7 +71,8 @@
         "husky": "^9.1.7",
         "jest": "^30.4.2",
         "lint-staged": "^17.3.0",
-        "prettier": "^3.9.6"
+        "prettier": "^3.9.6",
+        "typescript": "^7.0.2"
     },
     "peerDependencies": {
         "prettier": ">=3.7.0"
@@ -77,5 +84,9 @@
         "*.{js,mjs,cjs}": [
             "eslint --fix"
         ]
+    },
+    "directories": {
+        "doc": "docs",
+        "test": "tests"
     }
 }

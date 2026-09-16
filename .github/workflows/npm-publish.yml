@@ -27,9 +27,11 @@ jobs:
               with:
                   node-version: ${{ matrix.node }}
 
-            - run: npm ci
+            - run: npm ci --no-workspaces
             - run: npm run lint
+            - run: npm run typecheck
             - run: npm test
+            - run: npm run check:package-types
 
     publish-npm:
         needs: build

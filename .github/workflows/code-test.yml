@@ -25,4 +25,6 @@ jobs:
 
             - run: npm ci --no-workspaces
             - run: npm run lint
+            - run: npm run typecheck
             - run: npm test
+            - run: npm run check:package-types
