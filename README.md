@@ -185,6 +185,10 @@ Everything else is left exactly as written:
 
 AMPscript delimiters (`%%[`, `]%%`, `%%=`, `=%%`) and their contents are unaffected.
 
+## Broken AMPscript
+
+An AMPscript block or inline expression with a syntax error (a missing bracket, an unclosed string, an `if` without `then`, …) is left exactly as written. The plugin never guesses what was meant; the rest of the file is formatted as usual.
+
 ## Ignoring Code
 
 Prettier provides two ways to exclude code from formatting: ignore comments for specific code sections, and `.prettierignore` for entire files.

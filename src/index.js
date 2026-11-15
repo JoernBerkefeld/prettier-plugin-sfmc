@@ -16,6 +16,7 @@ import { getHelper } from 'handlebars-data';
 import { printers as prettierEstreePrinters } from 'prettier/plugins/estree';
 import { formatDialect, transactsql } from 'sql-formatter';
 import { printAmpscriptNode, collectVariableMap } from './printer.js';
+import { isLosslessParse } from './ampscript-lossless.js';
 import * as prettier from 'prettier';
 
 // ── SQL options ──────────────────────────────────────────────────────────────
@@ -771,6 +772,19 @@ export const printers = {
             if (
                 parent?.type === 'Document' &&
                 getRawTextInfo(parent, options).verbatim.has(path.index)
+            ) {
+                return prettier.doc.utils.replaceEndOfLine(
+                    options.originalText.slice(node.start, node.end),
+                );
+            }
+
+            // The parser recovers from syntax errors silently; printing such a
+            // tree would rewrite the code (invented `)`, `then`, closing quote,
+            // dropped tokens). Broken AMPscript is emitted exactly as written.
+            if (
+                parent?.type === 'Document' &&
+                (node.type === 'Block' || node.type === 'InlineExpression') &&
+                !isLosslessParse(node, options.originalText)
             ) {
                 return prettier.doc.utils.replaceEndOfLine(
                     options.originalText.slice(node.start, node.end),

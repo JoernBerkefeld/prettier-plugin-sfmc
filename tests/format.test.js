@@ -26,6 +26,10 @@ async function format(code, options = {}) {
     });
 }
 
+async function formatHtml(code) {
+    return prettier.format(code, { filepath: 'x.html', plugins: [plugin] });
+}
+
 async function formatSsjs(code, options = {}) {
     return prettier.format(code, {
         parser: 'babel',
@@ -1033,6 +1037,99 @@ describe('SQL (composed prettier-plugin-sql)', () => {
         expect(result.toUpperCase()).toContain('FROM');
         expect(result.toUpperCase()).toContain('WHERE');
         expect(result.trimEnd().length).toBeGreaterThan(0);
+    });
+});
+
+// ── Broken AMPscript is left untouched ───────────────────────────────────────
+
+describe('syntactically broken AMPscript', () => {
+    test.each([
+        ['a missing closing bracket', '%%[ set @a = Lookup("a" ]%%'],
+        ['an unterminated string', '%%[ set @a = "x ]%%'],
+        ['an if without condition and then', '%%[ if ]%%'],
+        ['a block that is never closed', '%%[ set @a = 1'],
+        ['tokens the parser cannot place', '%%[ set @a = 1 2 ]%%'],
+        ['a comment inside an expression', '%%[ set @a = Lookup("a", /* c */ "b") ]%%'],
+        ['a broken inline expression', '%%=v(@a=%%'],
+        [
+            'a broken script-tag block',
+            '<script runat="server" language="ampscript">set @a = Lookup("a"</script>',
+        ],
+    ])('keeps %s exactly as written', async (_name, input) => {
+        expect(await formatHtml(input)).toBe(input);
+        expect(await format(input)).toBe(input);
+    });
+
+    test('keeps the lines of a broken multi-line block as written', async () => {
+        const block = '%%[\n  set @a = Lookup("a"\n      SET @b = 2\n]%%';
+        // The HTML around it is formatted, so only the opening delimiter moves.
+        expect(await formatHtml(`<div>\n${block}\n</div>`)).toBe(`<div>\n    ${block}\n</div>`);
+        expect(await format(`${block}\n`)).toBe(`${block}\n`);
+    });
+
+    test('keeps the condition of an elseif whose if sits in an earlier block', async () => {
+        const result = await format(
+            '%%[ IF @a == 1 THEN ]%%A%%[ ELSEIF @a == 2 THEN ]%%B%%[ ENDIF ]%%',
+        );
+        expect(result).toBe(
+            '%%[\n    if @a == 1 then\n]%%A%%[ ELSEIF @a == 2 THEN ]%%B%%[\n    endif\n]%%',
+        );
+    });
+
+    test('formats everything around a broken block and a broken inline expression', async () => {
+        const input = [
+            '%%[ SET @a = "x" ]%%',
+            '<div><p>%%=v(@a=%%</p><p>%%=v(@a)=%%</p></div>',
+            '%%[ SET @b = Lookup("a" ]%%',
+            '<style>p{color:red}</style>',
+            '<script runat="server">var a = {b:1}</script>',
+            '%%[ IF @a == "x" THEN SET @c = 1 ENDIF ]%%',
+            '',
+        ].join('\n');
+        const expected = [
+            '%%[',
+            "    set @a = 'x'",
+            ']%%',
+            '<div>',
+            '    <p>%%=v(@a=%%</p>',
+            '    <p>%%= v(@a) =%%</p>',
+            '</div>',
+            '%%[ SET @b = Lookup("a" ]%%',
+            '<style>',
+            '    p {',
+            '        color: red;',
+            '    }',
+            '</style>',
+            '<script runat="server">',
+            '    var a = { b: 1 };',
+            '</script>',
+            '%%[',
+            "    if @a == 'x' then",
+            '        set @c = 1',
+            '    endif',
+            ']%%',
+        ].join('\n');
+        expect(await formatHtml(input)).toBe(expected);
+    });
+
+    test('valid code is still formatted', async () => {
+        expect(await formatHtml('%%[ SET @a = Lookup("a") ]%%')).toBe(
+            "%%[\n    set @a = Lookup('a')\n]%%",
+        );
+        expect(await formatHtml('%%[ SET @a = "x" ]%%')).toBe("%%[\n    set @a = 'x'\n]%%");
+        expect(await formatHtml('%%[ IF NOT (@a) THEN SET @b = [First Name] ENDIF ]%%')).toBe(
+            '%%[\n    if not @a then\n        set @b = [First Name]\n    endif\n]%%',
+        );
+        expect(await formatHtml('%%[ VAR @a, @b /* note */ ]%%%%=V(@a)=%%')).toBe(
+            '%%[\n    var @a,\n        @b\n    /* note */\n]%%%%= v(@a) =%%',
+        );
+        expect(
+            await formatHtml(
+                '%%[ FOR @i = 1 TO 3 DO ]%%x%%[ NEXT @i ]%%%%[ FOR @j = 3 DOWNTO 1 DO NEXT ]%%',
+            ),
+        ).toBe(
+            '%%[\n    for @i = 1 to 3 do\n]%%x%%[\n    next\n]%%%%[\n    for @j = 3 downto 1 do\n    next @j\n]%%',
+        );
     });
 });
 
