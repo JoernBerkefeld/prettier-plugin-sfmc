@@ -482,6 +482,177 @@ function extractHandlebarsRegions(text, options = {}) {
     return { html: out, tokens };
 }
 
+const AMPSCRIPT_PH = 'AMPSCRIPTPH';
+const AMPSCRIPT_PH_RE = new RegExp(String.raw`${AMPSCRIPT_PH}(\d+)END`, 'g');
+
+/**
+ * Finds where a string or template literal ends.
+ *
+ * @param {string} body JavaScript / CSS source.
+ * @param {number} start Index of the opening delimiter.
+ * @param {string} quote The delimiter character.
+ * @returns {number} Index of the closing delimiter; for an unterminated literal
+ * the index of the line break that cuts it off (or the end of the source).
+ */
+function findStringEnd(body, start, quote) {
+    let end = start + 1;
+    while (end < body.length && body[end] !== quote) {
+        if (quote !== '`' && body[end] === '\n') {
+            return end;
+        }
+        end += body[end] === '\\' ? 2 : 1;
+    }
+    return end;
+}
+
+/**
+ * Finds where the body of a `<script>` / `<style>` element ends: at the last
+ * closing tag before the next opening tag of the same name, so a closing tag
+ * written inside a JavaScript string (`'</script>'`) does not end it early.
+ *
+ * @param {string} html Document text.
+ * @param {number} bodyStart Index right after the opening tag.
+ * @param {string} name `script` or `style`.
+ * @returns {number} Index of the closing tag, or -1 when the element is unclosed.
+ */
+function findRawTextEnd(html, bodyStart, name) {
+    const edgeRe = name === 'script' ? /<(\/?)script(?=[\s/>])/gi : /<(\/?)style(?=[\s/>])/gi;
+    edgeRe.lastIndex = bodyStart;
+    let bodyEnd = -1;
+    let edge;
+    while ((edge = edgeRe.exec(html)) !== null) {
+        if (edge[1]) {
+            bodyEnd = edge.index;
+        } else if (bodyEnd !== -1) {
+            return bodyEnd;
+        }
+    }
+    return bodyEnd;
+}
+
+/**
+ * Works out which quote characters to append to the placeholders inside the
+ * string literals of one `<script>` / `<style>` body.
+ *
+ * A placeholder hides the quotes of the AMPscript it stands for, so Prettier
+ * would choose the delimiter of the surrounding JavaScript / CSS string
+ * without them — and `"%%=Lookup('DE')=%%"` would come back single-quoted and
+ * broken. Adding just enough copies of the *other* quote character to the
+ * placeholder makes Prettier keep the delimiter the source used. The extra
+ * characters are dropped again when the placeholder is replaced.
+ *
+ * The scan is a light tokenizer, not a parser: it knows string literals,
+ * template literals and comments. A quote inside a regular-expression literal
+ * can mislead it for the rest of that line only, because an unterminated
+ * string ends at the line break.
+ *
+ * @param {string} body Element body with AMPscript nodes replaced by plain placeholders.
+ * @param {boolean} isScript `true` for `<script>` (line comments and template literals exist).
+ * @param {string} preferredQuote Quote character Prettier prefers (`'` or `"`).
+ * @param {Map.<number, string>} quoteHints Receives child index → characters to append.
+ * @returns {void}
+ */
+function collectQuoteHints(body, isScript, preferredQuote, quoteHints) {
+    let index = 0;
+    while (index < body.length) {
+        const char = body[index];
+        if (isScript && body.startsWith('//', index)) {
+            const lineEnd = body.indexOf('\n', index);
+            index = lineEnd === -1 ? body.length : lineEnd;
+        } else if (body.startsWith('/*', index)) {
+            const commentEnd = body.indexOf('*/', index + 2);
+            index = commentEnd === -1 ? body.length : commentEnd + 2;
+        } else if (char === "'" || char === '"' || (isScript && char === '`')) {
+            const end = findStringEnd(body, index, char);
+            if (char !== '`' && body[end] === char) {
+                const content = body.slice(index + 1, end);
+                const first = AMPSCRIPT_PH_RE.exec(content);
+                AMPSCRIPT_PH_RE.lastIndex = 0;
+                if (first) {
+                    const other = char === "'" ? '"' : "'";
+                    // Prettier keeps its preferred quote unless the content has
+                    // more of it than of the alternative.
+                    const surplus = content.split(char).length - content.split(other).length;
+                    const needed = char === preferredQuote ? surplus : surplus + 1;
+                    if (needed > 0) {
+                        quoteHints.set(Number(first[1]), other.repeat(needed));
+                    }
+                }
+            }
+            index = body[end] === char ? end + 1 : end;
+        } else {
+            index++;
+        }
+    }
+}
+
+/**
+ * Finds the AMPscript nodes that sit inside the body of a `<script>` or
+ * `<style>` element. Those bodies are JavaScript / CSS source, so the AMPscript
+ * in them must be emitted exactly as written instead of being reformatted.
+ * AMPscript script tags never show up here: the parser turns them into Block
+ * nodes, so they are placeholders themselves rather than markup.
+ *
+ * The result is cached on `options`, like the variable map, because both the
+ * `embed` path and the plain printer need it.
+ *
+ * @param {object} documentNode Parsed Document node.
+ * @param {object} options Prettier's resolved options.
+ * @returns {{verbatim: Set.<number>, quoteHints: Map.<number, string>}} Child
+ * indexes to print verbatim, and the quote characters to append to the
+ * placeholder of a child inside a string literal (see `collectQuoteHints`).
+ */
+function getRawTextInfo(documentNode, options) {
+    if (options.__ampscriptRawTextInfo) {
+        return options.__ampscriptRawTextInfo;
+    }
+    const verbatim = new Set();
+    const quoteHints = new Map();
+    options.__ampscriptRawTextInfo = { verbatim, quoteHints };
+
+    const html = documentNode.children
+        .map((child, index) =>
+            child.type === 'Content' ? child.value : `${AMPSCRIPT_PH}${index}END`,
+        )
+        .join('');
+    const preferredQuote = options.singleQuote ? "'" : '"';
+
+    // Every tag is consumed quote-aware, so tag-like text inside an attribute
+    // value belongs to its host tag. Comments are skipped so a commented-out
+    // opening tag is not mistaken for a real one.
+    const tagRe = /<!--|<(\/?)([a-zA-Z][^\s/>]*)(?:[^>"']|"[^"]*"|'[^']*')*>/g;
+    let tag;
+    while ((tag = tagRe.exec(html)) !== null) {
+        if (tag[0] === '<!--') {
+            const commentEnd = html.indexOf('-->', tagRe.lastIndex);
+            if (commentEnd === -1) {
+                break;
+            }
+            tagRe.lastIndex = commentEnd + 3;
+            continue;
+        }
+        const name = tag[2].toLowerCase();
+        if (tag[1] || (name !== 'script' && name !== 'style')) {
+            continue;
+        }
+        const bodyStart = tagRe.lastIndex;
+        // Like the HTML parser, treat an unclosed element as running to the end.
+        const bodyEnd = findRawTextEnd(html, bodyStart, name);
+        const isClose = bodyEnd !== -1;
+        const body = html.slice(bodyStart, isClose ? bodyEnd : html.length);
+        const placeholders = body.matchAll(AMPSCRIPT_PH_RE);
+        for (const match of placeholders) {
+            verbatim.add(Number(match[1]));
+        }
+        collectQuoteHints(body, name === 'script', preferredQuote, quoteHints);
+        if (!isClose) {
+            break;
+        }
+        tagRe.lastIndex = bodyEnd;
+    }
+    return options.__ampscriptRawTextInfo;
+}
+
 // ── Languages ────────────────────────────────────────────────────────────────
 
 export const languages = [
@@ -592,6 +763,20 @@ export const printers = {
                 options.__ampscriptVariableMap = collectVariableMap(node);
             }
 
+            // AMPscript inside a `<script>` / `<style>` body is part of JavaScript
+            // or CSS source (often a string literal): emit the original text
+            // untouched. Decided here rather than in `embed` so it also holds
+            // when the HTML cannot be parsed and `embed` falls back to `print`.
+            const parent = path.parent;
+            if (
+                parent?.type === 'Document' &&
+                getRawTextInfo(parent, options).verbatim.has(path.index)
+            ) {
+                return prettier.doc.utils.replaceEndOfLine(
+                    options.originalText.slice(node.start, node.end),
+                );
+            }
+
             return printAmpscriptNode(path, options, print);
         },
 
@@ -618,7 +803,10 @@ export const printers = {
                     options.__ampscriptVariableMap = collectVariableMap(node);
                 }
 
-                const PH = 'AMPSCRIPTPH';
+                // Placeholders of AMPscript inside a JavaScript / CSS string
+                // literal carry extra quote characters (see `getRawTextInfo`).
+                const PH = AMPSCRIPT_PH;
+                const { quoteHints } = getRawTextInfo(node, options);
                 const htmlParts = [];
 
                 for (let index = 0; index < node.children.length; index++) {
@@ -626,7 +814,7 @@ export const printers = {
                     if (child.type === 'Content') {
                         htmlParts.push(child.value);
                     } else {
-                        htmlParts.push(`${PH}${index}END`);
+                        htmlParts.push(`${PH}${index}${quoteHints.get(index) ?? ''}END`);
                     }
                 }
 
@@ -649,7 +837,10 @@ export const printers = {
                     return;
                 }
 
-                const re = new RegExp(String.raw`(?:${PH}(\d+)END|${HANDLEBARS_PH}(\d+)END)`, 'g');
+                const re = new RegExp(
+                    String.raw`(?:${PH}(\d+)(?:\\?['"])*END|${HANDLEBARS_PH}(\d+)END)`,
+                    'g',
+                );
                 return prettier.doc.utils.mapDoc(htmlDocument, (d) => {
                     if (typeof d !== 'string') {
                         return d;

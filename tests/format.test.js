@@ -42,6 +42,18 @@ async function formatSql(code, options = {}) {
     });
 }
 
+/**
+ * The HTML embed path prints no final newline (existing behaviour for every
+ * document that contains HTML), so "unchanged" means: identical to the input
+ * apart from that last line break.
+ *
+ * @param {string} input Source text ending in a line break.
+ * @returns {string} The input without its final line break.
+ */
+function unchanged(input) {
+    return input.replace(/\n$/, '');
+}
+
 // ── Parser: basic document structure ─────────────────────────────────────────
 
 describe('parser', () => {
@@ -474,6 +486,153 @@ describe('HTML embedding', () => {
         expect(result).toContain('RedirectTo(');
         expect(result).toContain('v(@url)');
         expect(result).toContain('<a');
+    });
+});
+
+// ── AMPscript inside <script> / <style> bodies ───────────────────────────────
+
+describe('AMPscript inside script and style elements', () => {
+    test('leaves an inline expression inside a client-side JS string untouched', async () => {
+        const input = "<script>\n    var x = '%%=v(@a)=%%';\n</script>\n";
+        expect(await format(input)).toBe(unchanged(input));
+    });
+
+    test('leaves a block inside a client-side JS string untouched (no line break)', async () => {
+        const input = "<script>\n    var t = '%%[ set @x = 1 ]%%%%=v(@x)=%%';\n</script>\n";
+        const result = await format(input);
+        expect(result).toBe(unchanged(input));
+        expect(result).toContain("var t = '%%[ set @x = 1 ]%%%%=v(@x)=%%';");
+    });
+
+    test('leaves AMPscript outside a JS string untouched', async () => {
+        const input = '<script>\n    var n = %%=v(@count)=%%;\n</script>\n';
+        expect(await format(input)).toBe(unchanged(input));
+    });
+
+    test('still formats the JavaScript around verbatim AMPscript', async () => {
+        const input = "<script>\nvar   x='%%=v(@a)=%%'\n</script>\n";
+        expect(await format(input)).toBe("<script>\n    var x = '%%=v(@a)=%%';\n</script>");
+    });
+
+    test('keeps a multi-line block inside a script body as written', async () => {
+        const input =
+            '<script>\n    var a = 1;\n    %%[\nSET @X=1\n  ]%%\n    var b = 2;\n</script>\n';
+        const result = await format(input);
+        expect(result).toContain('%%[\nSET @X=1\n  ]%%');
+    });
+
+    test('leaves AMPscript inside a style element untouched', async () => {
+        const input = '<style>\n    .a { width: %%=v(@w)=%%px; }\n</style>\n';
+        expect(await format(input)).toBe(
+            '<style>\n    .a {\n        width: %%=v(@w)=%%px;\n    }\n</style>',
+        );
+    });
+
+    test('does not apply variable casing to verbatim AMPscript', async () => {
+        const input = "<p>%%=v(@Name)=%%</p>\n<script>\n    var x = '%%=v(@NAME)=%%';\n</script>\n";
+        expect(await format(input)).toBe(
+            "<p>%%= v(@Name) =%%</p>\n<script>\n    var x = '%%=v(@NAME)=%%';\n</script>",
+        );
+    });
+
+    test('resumes formatting after the closing tag', async () => {
+        const input =
+            "<script>\n    var x = '%%=v(@a)=%%';\n</script>\n<p>%%=v(@a)=%%</p>\n<!-- <script> -->\n<p>%%=v(@b)=%%</p>\n";
+        expect(await format(input)).toBe(
+            "<script>\n    var x = '%%=v(@a)=%%';\n</script>\n<p>%%= v(@a) =%%</p>\n<!-- <script> -->\n<p>%%= v(@b) =%%</p>",
+        );
+    });
+
+    // The placeholder hides the quotes inside the AMPscript, so without help
+    // Prettier would re-choose the JavaScript delimiter and break the string.
+    test.each([
+        ['double-quoted source', `"%%=Lookup('DE','f','k',@v)=%%"`],
+        ['single-quoted source', `'%%=Lookup("DE","f","k",@v)=%%'`],
+        ['double-quoted source without inner quotes', '"%%=v(@a)=%%"'],
+        ['other quotes next to the AMPscript', `"it's %%=v(@a)=%% and %%=Lookup('a')=%%"`],
+        ['more double quotes than single', `'say "hi" to "x" %%=Lookup("a")=%%'`],
+    ])('keeps the JS string delimiter: %s', async (_name, literal) => {
+        const input = `<script>\n    var s = ${literal};\n</script>\n`;
+        expect(await format(input)).toBe(unchanged(input));
+        expect(await format(input, { singleQuote: false })).toBe(unchanged(input));
+    });
+
+    test('keeps the CSS string delimiter', async () => {
+        const input =
+            "<style>\n    .a::before {\n        content: \"%%=Lookup('DE','f','k',@v)=%%\";\n    }\n</style>\n";
+        expect(await format(input)).toBe(unchanged(input));
+    });
+
+    // Stray closing tags are normal in content-block fragments and make the
+    // HTML parse fail; the verbatim rule must hold on that fallback path too.
+    test('stays verbatim when the HTML cannot be parsed (stray closing tag)', async () => {
+        const script = "<script>\nvar t = '%%[ set @x = 1 set @y = 2 ]%%%%=v(@x)=%%';\n</script>\n";
+        const result = await format(`</td></tr></table>\n${script}`);
+        expect(result).toContain(script);
+    });
+
+    test('treats an unclosed script element as running to the end', async () => {
+        const result = await format(
+            "<p>%%=v(@p)=%%</p>\n<script>\nvar t = '%%[ set @x = 1 set @y = 2 ]%%';\n",
+        );
+        expect(result).toContain("var t = '%%[ set @x = 1 set @y = 2 ]%%';");
+        expect(result).toContain('<p>%%= v(@p) =%%</p>');
+    });
+
+    test('is not ended early by a closing tag inside a JS string', async () => {
+        const result = await format(
+            "<script>\nvar a = '</script>';\nvar t = '%%=v(@x)=%%';\n</script>\n<p>%%=v(@p)=%%</p>\n",
+        );
+        expect(result).toContain("var t = '%%=v(@x)=%%';");
+        expect(result).toContain('<p>%%= v(@p) =%%</p>');
+    });
+
+    test('ignores tag-like text inside an attribute value', async () => {
+        const input =
+            '<a title="<script>" href="%%=v(@a)=%%">%%=v(@b)=%%</a>\n<p>%%=v(@c)=%%</p>\n<script>var q=1;</script>\n';
+        expect(await format(input)).toBe(
+            '<a title="<script>" href="%%= v(@a) =%%">%%= v(@b) =%%</a>\n<p>%%= v(@c) =%%</p>\n<script>\n    var q = 1;\n</script>',
+        );
+    });
+
+    test('ignores custom elements whose name starts with script or style', async () => {
+        const input =
+            "<script-loader>%%=v(@a)=%%</script-loader><style-guide>%%=v(@b)=%%</style-guide>\n<script>var q='%%=v(@c)=%%';</script>\n";
+        expect(await format(input)).toBe(
+            "<script-loader>%%= v(@a) =%%</script-loader><style-guide>%%= v(@b) =%%</style-guide>\n<script>\n    var q = '%%=v(@c)=%%';\n</script>",
+        );
+    });
+
+    test('control: AMPscript in attribute values and HTML text is still formatted', async () => {
+        const input = '<a href="%%=RedirectTo(@url)=%%">%%=v(@name)=%%</a>\n';
+        expect(await format(input)).toBe('<a href="%%= RedirectTo(@url) =%%">%%= v(@name) =%%</a>');
+    });
+
+    test('control: AMPscript script tag bodies are still formatted', async () => {
+        const input =
+            '<script runat="server" language="ampscript">\nset @x=1\n</script>\n<p>%%=v(@x)=%%</p>\n';
+        expect(await format(input)).toBe(
+            '<script runat="server" language="ampscript">\n    set @x = 1\n</script>\n<p>%%= v(@x) =%%</p>',
+        );
+    });
+
+    // Relies on the ampscript-parser version that no longer produces AMPscript
+    // nodes inside server-side JavaScript (unreleased at the time of writing;
+    // resolved from the local workspace).
+    test('leaves AMPscript in server-side JavaScript strings untouched', async () => {
+        const input =
+            '<script runat="server">\n' +
+            "    var s = Platform.Function.TreatAsContent('%%=v(@a)=%%');\n" +
+            "    var t = Platform.Function.TreatAsContent('%%[ set @x = 1 ]%%%%=v(@x)=%%');\n" +
+            '</script>\n';
+        expect(await format(input)).toBe(unchanged(input));
+    });
+
+    // Also relies on the unreleased ampscript-parser (see above).
+    test('does not corrupt personalization strings next to = and [', async () => {
+        const input =
+            '<pre>\nA=[x?e=%%memberid%%=1]\nB=[plain]\nC=[%%memberid%%[x] tail]\nD=[%%= v(@a) =%%]\n</pre>\n';
+        expect(await format(input)).toBe(unchanged(input));
     });
 });
 

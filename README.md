@@ -162,6 +162,8 @@ When formatting `.html` files, the plugin:
 3. Prettier's HTML formatter handles `<script runat="server">` SSJS blocks as JavaScript
 4. Normalizes Marketing Cloud Next `{{…}}` Handlebars expressions (see [Handlebars](#handlebars-marketing-cloud-next))
 
+AMPscript inside the body of a `<script>` or `<style>` element is left exactly as written, because it is part of the surrounding JavaScript or CSS (often inside a string literal) and reformatting it could break that code. The JavaScript and CSS around it are still formatted, and AMPscript in regular HTML text and attribute values is formatted as usual.
+
 This means a single plugin handles all SFMC formatting in HTML email templates.
 
 ## Handlebars (Marketing Cloud Next)
