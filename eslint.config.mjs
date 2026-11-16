@@ -50,6 +50,7 @@ export default [
             },
         },
         rules: {
+            'unicorn/no-asterisk-prefix-in-documentation-comments': 'off',
             'logical-assignment-operators': ['error', 'always'],
             'arrow-body-style': ['error', 'as-needed'],
             curly: 'error',
