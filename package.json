@@ -29,6 +29,8 @@
     "scripts": {
         "example": "prettier --plugin . example.ampscript",
         "test": "node ./scripts/run-jest.mjs",
+        "verify:own-dependencies-latest": "node scripts/verify-own-dependencies-latest.mjs",
+        "preversion": "npm run verify:own-dependencies-latest",
         "typecheck": "tsc --project tsconfig.json",
         "check:package-types": "node ./scripts/check-package-types.mjs",
         "lint": "eslint .",
