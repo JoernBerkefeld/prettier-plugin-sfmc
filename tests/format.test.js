@@ -816,6 +816,40 @@ describe('Handlebars (MCN)', () => {
         expect(result).toContain('{{getContentBlock "My  Key"}}');
     });
 
+    // ── Helpers added for Marketing Cloud Next API 68 (handlebars-data 0.5.0) ──
+
+    test.each([
+        ['{{MD5 x}}', '{{md5 x}}'],
+        ['{{SHA256 email}}', '{{sha256 email}}'],
+        ['{{base64encode x}}', '{{base64Encode x}}'],
+        ['{{REGEXMATCH phone "^[0-9]+$"}}', '{{regExMatch phone "^[0-9]+$"}}'],
+        ['{{datepart orderDate "year"}}', '{{datePart orderDate "year"}}'],
+        ['{{BuildURL "https://example.com" id}}', '{{buildUrl "https://example.com" id}}'],
+        ['{{encodeuricomponent query}}', '{{encodeURIComponent query}}'],
+        ['{{ISEMAILADDRESS email}}', '{{isEmailAddress email}}'],
+    ])('recases the API 68 helper in %s to its catalogue spelling', async (source, expected) => {
+        const result = await format(`<p>${source}</p>`);
+        expect(result).toContain(expected);
+    });
+
+    test('named arguments of an API 68 helper survive unchanged', async () => {
+        const input = '<p>{{BASE64ENCODE   x   charset="UTF-8"}} {{Md5 x CharSet="utf-16"}}</p>';
+        const result = await format(input);
+        expect(result).toContain('{{base64Encode x charset="UTF-8"}}');
+        expect(result).toContain('{{md5 x CharSet="utf-16"}}');
+    });
+
+    test('an API 68 helper is recased as a subexpression head and in every casing mode', async () => {
+        const input = '<p>{{myField (SHA256 email charset="UTF-8")}}</p>';
+        expect(await format(input)).toContain('{{myField (sha256 email charset="UTF-8")}}');
+        expect(await format(input, { handlebarsHelperCase: 'upper-camel' })).toContain(
+            '{{myField (Sha256 email charset="UTF-8")}}',
+        );
+        expect(await format(input, { handlebarsHelperCase: 'preserve' })).toContain(
+            '{{myField (SHA256 email charset="UTF-8")}}',
+        );
+    });
+
     // ── .hbs fixture ──────────────────────────────────────────────────────────
 
     test('formats a standalone .hbs document (helpers recased, paths preserved)', async () => {
