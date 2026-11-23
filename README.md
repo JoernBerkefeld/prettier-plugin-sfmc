@@ -185,6 +185,10 @@ Everything else is left exactly as written:
 
 AMPscript delimiters (`%%[`, `]%%`, `%%=`, `=%%`) and their contents are unaffected.
 
+## Inline Expressions in Text
+
+An inline expression such as `%%= v(@code) =%%` stays on one line, however long the line of text around it is. It is only spread over several lines when the expression alone is wider than `printWidth`.
+
 ## Broken AMPscript
 
 An AMPscript block or inline expression with a syntax error (a missing bracket, an unclosed string, an `if` without `then`, …) is left exactly as written. The plugin never guesses what was meant; the rest of the file is formatted as usual.

@@ -493,6 +493,50 @@ describe('HTML embedding', () => {
     });
 });
 
+// ── Inline expressions in long lines of plain text (SMS and the like) ────────
+
+describe('inline expressions in a line of text longer than printWidth', () => {
+    const sms =
+        'Hello %%=v(@firstName)=%%, your verification code for the Northern Trail Outfitters account is %%=v(@code)=%%. It expires in 10 minutes.';
+    const smsFormatted =
+        'Hello %%= v(@firstName) =%%, your verification code for the Northern Trail Outfitters account is %%= v(@code) =%%. It expires in 10 minutes.';
+
+    test('keeps short inline expressions on one line', async () => {
+        expect(await format(sms)).toBe(smsFormatted);
+    });
+
+    test('keeps short inline expressions on one line when read as HTML', async () => {
+        expect(await formatHtml(sms)).toBe(smsFormatted);
+    });
+
+    test('keeps an expression on one line when the text after it is long', async () => {
+        const input = `Your code is %%=v(@code)=%%${' word'.repeat(30)}`;
+        expect(await format(input)).toBe(input.replace('%%=v(@code)=%%', '%%= v(@code) =%%'));
+    });
+
+    test('keeps an expression on one line when it ends the long line', async () => {
+        const input = `${'a'.repeat(95)} %%=v(@code)=%%`;
+        expect(await format(input)).toBe(`${'a'.repeat(95)} %%= v(@code) =%%`);
+    });
+
+    test('is idempotent', async () => {
+        expect(await format(smsFormatted)).toBe(smsFormatted);
+    });
+
+    test('keeps an expression with a multi-line string literal on its lines', async () => {
+        const input = `Hi %%=Concat('a\nb', @x)=%%${' word'.repeat(25)}`;
+        expect(await format(input)).toBe(`Hi %%= Concat('a\nb', @x) =%%${' word'.repeat(25)}`);
+    });
+
+    test('still breaks an expression that does not fit on the line by itself', async () => {
+        const input =
+            'Text %%=Concat(@aaaaaaaaaaaaaaaa, @bbbbbbbbbbbbbbbbbbbbbb, @cccccccccccccccccccccc, @dddddddddddddddddddddd, @eeee)=%% end';
+        const result = await format(input);
+        expect(result).toContain('Text %%= Concat(\n    @aaaaaaaaaaaaaaaa,\n');
+        expect(result).toContain('\n) =%% end');
+    });
+});
+
 // ── AMPscript inside <script> / <style> bodies ───────────────────────────────
 
 describe('AMPscript inside script and style elements', () => {

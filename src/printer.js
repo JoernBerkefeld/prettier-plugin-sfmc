@@ -340,10 +340,22 @@ function printAmpscriptNode(path, options, print) {
 
         case 'InlineExpression': {
             const expression = print('expression');
-            if (enforceSpacing) {
-                return ['%%= ', expression, ' =%%'];
-            }
-            return ['%%=', expression, '=%%'];
+            const inline = enforceSpacing
+                ? ['%%= ', expression, ' =%%']
+                : ['%%=', expression, '=%%'];
+            // An inline expression usually sits in text that is printed as
+            // written, so breaking it cannot shorten that line. Prettier would
+            // still break it whenever the text around it makes the line too
+            // long; break it only when it does not fit in printWidth by itself.
+            // Compared with the flat print rather than searched for a newline,
+            // because a string literal may contain one.
+            const flat = prettier.doc.utils.removeLines(inline);
+            const printOptions = { ...options, endOfLine: 'lf' };
+            const { printDocToString } = prettier.doc.printer;
+            return printDocToString(group(inline), printOptions).formatted ===
+                printDocToString(flat, printOptions).formatted
+                ? flat
+                : inline;
         }
 
         case 'Comment': {
